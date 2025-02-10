@@ -221,7 +221,7 @@ void raw_free(void *ptr) {
 
 }  // namespace
 
-void *realloc(void *ptr, size_t size) {
+void *realloc(void *ptr, ::size_t size) {
     if (!done_init) {
         if (started_init) {
             // called from within GC_INIT, so we can't call it again.  Fall back to using
