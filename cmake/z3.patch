@@ -11,6 +11,19 @@ index 79708764..18af2183 100644
    COMMAND
    "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
    COMMENT "Uninstalling..."
+diff --git a/src/ast/rewriter/seq_eq_solver.cpp b/src/ast/rewriter/seq_eq_solver.cpp
+index c6778c45..ab18c0cb 100644
+--- a/src/ast/rewriter/seq_eq_solver.cpp
++++ b/src/ast/rewriter/seq_eq_solver.cpp
+@@ -284,7 +284,7 @@ namespace seq {
+         bv_util bv(m);
+         sort* bv_sort = n->get_sort();
+         unsigned sz = bv.get_bv_size(n);
+-        if (es.size() > (sz + log2(10)-1)/log2(10)) {
++        if (es.size() > (sz + log2((double)10)-1)/log2((double)10)) {
+             set_conflict();
+             return true;
+         }
 diff --git a/src/util/memory_manager.cpp b/src/util/memory_manager.cpp
 index 8c6bfc7e..fb3226b8 100644
 --- a/src/util/memory_manager.cpp

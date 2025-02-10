@@ -129,7 +129,6 @@ include(UnifiedBuild)
 set (P4C_CXX_FLAGS "")
 set (P4C_LIB_DEPS)
 
-
 # Support the legacy unified build option.
 if(ENABLE_UNIFIED_COMPILATION)
   message(
@@ -160,6 +159,11 @@ if(STATIC_BUILD_WITH_DYNAMIC_GLIBC OR STATIC_BUILD_WITH_DYNAMIC_STDLIB)
   # See https://cmake.org/cmake/help/latest/module/FindBoost.html for details
   set(Boost_USE_STATIC_LIBS ON)
   set(Boost_USE_STATIC_RUNTIME OFF)
+  # No idea why the include_directories() isn't getting the job done, but
+  # we need to explicitly add the -I here.
+  add_compile_options("-I${Boost_INCLUDE_DIRS}")
+  include_directories(${Boost_INCLUDE_DIRS})
+
   # Set the static variable
   set(P4C_STATIC_BUILD STATIC)
   # TODO: We can not use -static here because of compilation and portability problems:
