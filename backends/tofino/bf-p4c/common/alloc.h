@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <utility>
+#include <tuple>
 
 namespace BFN {
 
