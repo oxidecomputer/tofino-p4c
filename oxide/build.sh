@@ -15,6 +15,8 @@ CMAKE_PREFIX_PATH=/opt/ooce/:`pwd`/rapidjson cmake \
 	-DENABLE_P4TEST=OFF \
 	-DENABLE_TEST_TOOLS=OFF \
 	-DENABLE_GC=OFF \
+	-DP4C_USE_PREINSTALLED_ABSEIL=ON \
+	-Dabsl_DIR=/opt/ooce/absl/lib/cmake/absl \
 	-DBoost_INCLUDE_DIR=/opt/ooce/boost/libs \
 	-DBoost_USE_STATIC_RUNTIME=ON \
 	.. 
