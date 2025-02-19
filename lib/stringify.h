@@ -25,7 +25,7 @@ limitations under the License.
 #include <type_traits>
 
 // FIXME: Replace with big_int_fwd.h with Boost 1.84+
-#include "big_int.h"
+#include "big_int_fwd.h"
 #include "cstring.h"
 
 namespace P4 {
