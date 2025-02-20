@@ -15,11 +15,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(PkgConfig QUIET)
-if(CMAKE_HOST_SYSTEM_NAME STREQUAL "SunOS")
+if(DEFINED RAPIDJSON_DIR)
   include_directories(${RAPIDJSON_DIR})
   include_directories("${CMAKE_SOURCE_DIR}/oxide/rapidjson/include")
-  message("XXXX", ${RAPIDJSON_DIR},
-	  "${CMAKE_SOURCE_DIR}/oxide/rapidjson/include")
 else()
   pkg_check_modules(LIBRAPIDJSON REQUIRED RapidJSON=1.1.0)
 endif()
