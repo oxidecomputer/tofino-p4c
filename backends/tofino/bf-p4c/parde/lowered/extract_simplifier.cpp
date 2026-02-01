@@ -56,7 +56,8 @@ void ExtractSimplifier::add(const IR::BFN::ExtractClot *extract) {
 void ExtractSimplifier::add(const IR::BFN::ExtractPhv *extract) {
     PHV::FieldUse use(PHV::FieldUse::WRITE);
     std::vector<PHV::AllocSlice> slices =
-        phv.get_alloc(extract->dest->field, PHV::AllocContext::PARSER, &use);
+        phv.get_alloc(extract->dest->field, nullptr, nullptr);
+
     if (slices.empty()) {
         BUG("Parser extract didn't receive a PHV allocation: %1%", extract);
         return;

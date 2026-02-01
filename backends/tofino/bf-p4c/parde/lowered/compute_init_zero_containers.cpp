@@ -24,7 +24,11 @@ void ComputeInitZeroContainers::postorder(IR::BFN::LoweredParser *parser) {
     ordered_set<PHV::Container> zero_init_containers;
     ordered_set<PHV::Container> intrinsic_invalidate_containers;
 
-    auto ctxt = PHV::AllocContext::PARSER;
+    // Use nullptr context to iterate over ALL allocations for each field, not just
+    // parser-context allocations. This ensures all metadata containers are zero-initialized,
+    // which is required for correctness when RemoveMetadataInits removes zero-assignments
+    // that the user may have written explicitly.
+    const PHV::AllocContext *ctxt = nullptr;
     for (const auto &f : phv) {
         if (f.gress != parser->gress) continue;
 

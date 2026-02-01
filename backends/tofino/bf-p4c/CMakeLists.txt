@@ -33,7 +33,9 @@ if (ENABLE_MULTITHREAD)
   add_definitions("-DGC_NO_THREAD_REDIRECTS=1")
 endif()
 # TODO: figure out why include_directories() isn't getting this done
-add_definitions("-I${RAPIDJSON_DIR}")
+if(RAPIDJSON_DIR)
+  add_definitions("-I${RAPIDJSON_DIR}")
+endif()
 
 # We need to abstract away the targets enumerated in the schema files,
 # so that we do not tip our hand on future targets.

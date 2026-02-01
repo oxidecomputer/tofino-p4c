@@ -19,6 +19,7 @@
 #include "auto_init_metadata.h"
 
 #include "backends/tofino/bf-p4c/common/pragma/all_pragmas.h"
+#include "backends/tofino/bf-p4c/device.h"
 #include "backends/tofino/bf-p4c/phv/pragma/pa_no_init.h"
 
 bool DisableAutoInitMetadata::auto_init_metadata(const IR::BFN::Pipe *pipe) const {
@@ -159,6 +160,13 @@ bool RemoveMetadataInits::elim_assign(const IR::BFN::Unit *unit, const IR::Expre
 }
 
 bool RemoveMetadataInits::elim_extract(const IR::BFN::Unit *unit, const IR::BFN::Extract *extract) {
+    // Don't remove user-written initializations (those with valid source info).
+    // Only remove compiler-generated initializations that are redundant with
+    // implicit parser zero-initialization.
+    if (extract->getSourceInfo().isValid()) {
+        return false;
+    }
+
     if (auto lval = extract->dest->to<IR::BFN::FieldLVal>()) {
         if (auto rval = extract->source->to<IR::BFN::ConstantRVal>()) {
             auto result = elim_assign(unit, lval->field, rval->constant);

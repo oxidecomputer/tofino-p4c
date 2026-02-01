@@ -255,9 +255,19 @@ void ComputeLoweredParserIR::postorder(const IR::BFN::ParserState *state) {
             stopper = stop;
         } else if (auto *zeroInit = prim->to<IR::BFN::ParserZeroInit>()) {
             if (Device::currentDevice() == Device::TOFINO) {
+                // Tofino1: Track containers for implicit parser zero-init
                 auto ctxt = PHV::AllocContext::PARSER;
                 for (auto &alloc : phv.get_alloc(zeroInit->field->field, ctxt))
                     origParserZeroInitContainers[state->thread()].emplace(alloc.container());
+            } else {
+                // Tofino2+: Generate explicit constant extract (mocha containers need this)
+                auto *fieldLVal = zeroInit->field->to<IR::BFN::FieldLVal>();
+                BUG_CHECK(fieldLVal, "ParserZeroInit field is not a FieldLVal: %1%", zeroInit);
+                // Use untyped ConstantRVal(0) - same pattern as add_parde_metadata.cpp
+                auto *extract = new IR::BFN::ExtractPhv(
+                    new IR::BFN::FieldLVal(fieldLVal->field),
+                    new IR::BFN::ConstantRVal(0));
+                simplifier.add(extract);
             }
         } else if (!prim->is<IR::BFN::ParserZeroInit>()) {
             P4C_UNIMPLEMENTED("unhandled parser primitive %1%", prim);

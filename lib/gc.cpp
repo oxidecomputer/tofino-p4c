@@ -218,7 +218,9 @@ void raw_free(void *ptr) {
     size_t size = raw_size(ptr);
     munmap(data_to_header(ptr), size + headerSize);
 }
+}  // namespace
 
+#ifndef __sun
 void *realloc(void *ptr, ::size_t size) {
     if (!done_init) {
         if (started_init) {
@@ -249,6 +251,7 @@ void *realloc(void *ptr, ::size_t size) {
         return GC_malloc(size);
     }
 }
+
 // IMPORTANT: do not simplify this to realloc(nullptr, size)
 // As it could be optimized to malloc(size) call causing
 // infinite loops
@@ -267,7 +270,7 @@ void *calloc(size_t size, size_t elsize) {
     if (rv) memset(rv, 0, size);
     return rv;
 }
-}  // namespace
+#endif
 int posix_memalign(void **memptr, size_t alignment, size_t size)
 #ifdef __GLIBC__
     __THROW

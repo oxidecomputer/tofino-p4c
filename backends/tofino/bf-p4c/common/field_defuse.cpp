@@ -329,6 +329,11 @@ bool FieldDefUse::preorder(const IR::BFN::Parser *p) {
                 StartLen(0, f.size));
             located_defs[f.id].emplace(parser_begin, parser_err_expr);
         } else {
+            // ifdefing this out until someome can tell me what the precise
+            // hardware initialization semantics for tofino 2 are supposed to
+            // be. Observations in our lab show that implicit hardware
+            // initialization is not, in fact, guaranteed.
+#ifdef GUARANTEED_HARDWARE_ZERO_INITIALIZATION
             LOG2("Adding implicit parser initialization expr for " << f.name);
             auto *parser_begin = p->start;
             const PHV::Field *f_p = phv.field(f.id);
@@ -340,6 +345,7 @@ bool FieldDefUse::preorder(const IR::BFN::Parser *p) {
             info.def_covered_ranges_map[locpair(parser_begin, dummy_expr)].insert(
                 le_bitrange(0, f_p->size - 1));
             located_defs[f.id].emplace(parser_begin, dummy_expr);
+#endif
         }
     }
     return true;
