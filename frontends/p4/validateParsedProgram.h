@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef P4_VALIDATEPARSEDPROGRAM_H_
-#define P4_VALIDATEPARSEDPROGRAM_H_
+#ifndef FRONTENDS_P4_VALIDATEPARSEDPROGRAM_H_
+#define FRONTENDS_P4_VALIDATEPARSEDPROGRAM_H_
 
 #include "ir/ir.h"
 #include "ir/visitor.h"
@@ -88,7 +88,7 @@ class ValidateParsedProgram final : public Inspector {
     void postorder(const IR::P4Parser *parser) override {
         auto start = parser->states.getDeclaration(IR::ParserState::start);
         if (!start) {
-            ::P4::error(ErrorType::ERR_INVALID, "Parser %1% has no 'start' state", parser);
+            error(ErrorType::ERR_INVALID, "Parser %1% has no 'start' state", parser->name);
         }
         container(parser);
         distinctParameters(parser->getTypeParameters(), parser->getApplyParameters(),
@@ -101,4 +101,4 @@ class ValidateParsedProgram final : public Inspector {
 
 }  // namespace P4
 
-#endif /* P4_VALIDATEPARSEDPROGRAM_H_ */
+#endif /* FRONTENDS_P4_VALIDATEPARSEDPROGRAM_H_ */

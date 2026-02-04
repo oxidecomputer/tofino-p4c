@@ -29,10 +29,11 @@ class ConvertToBackendIR;
 class EBPFPnaParser;
 class EBPFRegisterPNA;
 class EBPFHashPNA;
+class EBPFRandomPNA;
 
 //  Similar to class PSAEbpfGenerator in backends/ebpf/psa/ebpfPsaGen.h
 
-class PNAEbpfGenerator : public EBPF::EbpfCodeGenerator {
+class PNAEbpfGenerator : public EBPF::EbpfCodeGenerator, public ICastable {
  public:
     EBPF::EBPFPipeline *pipeline;
     const ConvertToBackendIR *tcIR;
@@ -55,6 +56,8 @@ class PNAEbpfGenerator : public EBPF::EbpfCodeGenerator {
     void emitP4TCFilterFields(EBPF::CodeBuilder *builder) const;
     void emitP4TCActionParam(EBPF::CodeBuilder *builder) const;
     cstring getProgramName() const;
+
+    DECLARE_TYPEINFO(PNAEbpfGenerator);
 };
 
 // Similar to class PSAErrorCodesGen in backends/ebpf/psa/ebpfPsaGen.cpp
@@ -104,8 +107,12 @@ class PNAArchTC : public PNAEbpfGenerator {
     void emit(EBPF::CodeBuilder *builder) const override;
     void emitParser(EBPF::CodeBuilder *builder) const override;
     void emitHeader(EBPF::CodeBuilder *builder) const override;
+    virtual void emitHeaderIncludes(EBPF::CodeBuilder *builder) const;
+    virtual void emitHeaderDefs(EBPF::CodeBuilder *builder) const;
     void emitInstances(EBPF::CodeBuilder *builder) const override;
     void emitGlobalFunctions(EBPF::CodeBuilder *builder) const;
+
+    DECLARE_TYPEINFO(PNAArchTC);
 };
 
 class TCIngressPipelinePNA : public EBPF::TCIngressPipeline {
@@ -129,12 +136,20 @@ class PnaStateTranslationVisitor : public EBPF::PsaStateTranslationVisitor {
         : EBPF::PsaStateTranslationVisitor(refMap, typeMap, prsr) {}
 
     bool preorder(const IR::Member *expression) override;
+    mutable bool extractedVarbit = false;
 
  protected:
-    void compileExtractField(const IR::Expression *expr, const IR::StructField *field,
-                             unsigned hdrOffsetBits, EBPF::EBPFType *type) override;
+    unsigned int compileExtractVarbits(const IR::Expression *, const IR::StructField *,
+                                       unsigned int, EBPF::EBPFType *, const char *);
+    unsigned int compileExtractField(const IR::Expression *, const IR::StructField *, unsigned int,
+                                     EBPF::EBPFType *, const char *);
     void compileLookahead(const IR::Expression *destination) override;
     bool preorder(const IR::SelectCase *selectCase) override;
+    bool preorder(const IR::SelectExpression *expression) override;
+    bool preorder(const IR::AssignmentStatement *statement) override;
+    void processMethod(const P4::ExternMethod *method) override;
+    void compileExtract(const IR::Expression *dest, const IR::Expression *varsize = 0);
+    char *visit_to_string(const IR::Expression *);
 };
 
 class EBPFPnaParser : public EBPF::EBPFPsaParser {
@@ -194,6 +209,7 @@ class DeparserBodyTranslatorPNA : public EBPF::DeparserBodyTranslatorPSA {
     explicit DeparserBodyTranslatorPNA(const IngressDeparserPNA *deparser);
 
     void processFunction(const P4::ExternFunction *function) override;
+    bool preorder(const IR::AssignmentStatement *a) override;
 };
 
 class IngressDeparserPNA : public EBPF::EBPFDeparserPSA {
@@ -254,13 +270,15 @@ class ConvertToEbpfPipelineTC : public Inspector {
     P4::ReferenceMap *refmap;
     EBPF::EBPFPipeline *pipeline;
     const ConvertToBackendIR *tcIR;
+    std::vector<EBPF::EBPFType *> ebpfTypes;
 
  public:
     ConvertToEbpfPipelineTC(cstring name, EBPF::pipeline_type type, const EbpfOptions &options,
                             const IR::ParserBlock *parserBlock,
                             const IR::ControlBlock *controlBlock,
                             const IR::ControlBlock *deparserBlock, P4::ReferenceMap *refmap,
-                            P4::TypeMap *typemap, const ConvertToBackendIR *tcIR)
+                            P4::TypeMap *typemap, const ConvertToBackendIR *tcIR,
+                            std::vector<EBPF::EBPFType *> ebpfTypes)
         : name(name),
           type(type),
           options(options),
@@ -270,7 +288,8 @@ class ConvertToEbpfPipelineTC : public Inspector {
           typemap(typemap),
           refmap(refmap),
           pipeline(nullptr),
-          tcIR(tcIR) {}
+          tcIR(tcIR),
+          ebpfTypes(ebpfTypes) {}
 
     bool preorder(const IR::PackageBlock *block) override;
     EBPF::EBPFPipeline *getEbpfPipeline() { return pipeline; }
@@ -297,6 +316,7 @@ class EBPFControlPNA : public EBPF::EBPFControlPSA {
     bool addExternDeclaration = false;
     std::map<cstring, EBPFRegisterPNA *> pna_registers;
     std::map<cstring, EBPFHashPNA *> pna_hashes;
+    std::map<cstring, EBPFRandomPNA *> pna_randoms;
 
     mutable bool touched_skb_metadata;
 
@@ -311,6 +331,10 @@ class EBPFControlPNA : public EBPF::EBPFControlPSA {
     }
     EBPFHashPNA *getHash(cstring name) const {
         auto result = ::P4::get(pna_hashes, name);
+        return result;
+    }
+    EBPFRandomPNA *getRandom(cstring name) const {
+        auto result = ::P4::get(pna_randoms, name);
         return result;
     }
     void emitExternDefinition(EBPF::CodeBuilder *builder) {
@@ -367,15 +391,18 @@ class ConvertToEBPFDeparserPNA : public Inspector {
     const IR::Parameter *parserHeaders;
     const IR::Parameter *istd;
     const ConvertToBackendIR *tcIR;
+    std::vector<EBPF::EBPFType *> ebpfTypes;
     TC::IngressDeparserPNA *deparser;
 
  public:
     ConvertToEBPFDeparserPNA(EBPF::EBPFProgram *program, const IR::Parameter *parserHeaders,
-                             const IR::Parameter *istd, const ConvertToBackendIR *tcIR)
+                             const IR::Parameter *istd, const ConvertToBackendIR *tcIR,
+                             std::vector<EBPF::EBPFType *> ebpfTypes)
         : program(program),
           parserHeaders(parserHeaders),
           istd(istd),
           tcIR(tcIR),
+          ebpfTypes(ebpfTypes),
           deparser(nullptr) {}
 
     bool preorder(const IR::ControlBlock *) override;
@@ -403,6 +430,31 @@ class ControlBodyTranslatorPNA : public EBPF::ControlBodyTranslator {
     bool IsTableAddOnMiss(const IR::P4Table *table);
     const IR::P4Action *GetAddOnMissHitAction(cstring actionName);
     void ValidateAddOnMissMissAction(const IR::P4Action *act);
+    bool arithCommon(const IR::Operation_Binary *, const char *, const char *);
+    bool sarithCommon(const IR::Operation_Binary *, const char *);
+    bool preorder(const IR::Concat *) override;
+    bool preorder(const IR::Add *) override;
+    bool preorder(const IR::Sub *) override;
+    bool preorder(const IR::Mul *) override;
+    bool preorder(const IR::Cast *) override;
+    bool preorder(const IR::Neg *) override;
+    bool preorder(const IR::Cmpl *) override;
+    bool preorder(const IR::Shl *) override;
+    bool preorder(const IR::Shr *) override;
+    bool preorder(const IR::Equ *) override;
+    bool preorder(const IR::Neq *) override;
+    bool preorder(const IR::Lss *) override;
+    bool preorder(const IR::Leq *) override;
+    bool preorder(const IR::Grt *) override;
+    bool preorder(const IR::Geq *) override;
+    bool preorder(const IR::BAnd *) override;
+    bool preorder(const IR::BOr *) override;
+    bool preorder(const IR::BXor *) override;
+    bool preorder(const IR::AddSat *) override;
+    bool preorder(const IR::SubSat *) override;
+    bool preorder(const IR::Constant *) override;
+    bool bigXSmallMul(const IR::Expression *, const IR::Constant *);
+    void visitHostOrder(const IR::Expression *);
 };
 
 // Similar to class ActionTranslationVisitorPSA in backends/ebpf/psa/ebpfPsaControl.h
@@ -433,6 +485,8 @@ class DeparserHdrEmitTranslatorPNA : public EBPF::DeparserPrepareBufferTranslato
     const EBPF::EBPFDeparser *deparser;
 
  public:
+    bool in_var = false;
+    mutable bool hasVarbit = false;
     explicit DeparserHdrEmitTranslatorPNA(const EBPF::EBPFDeparser *deparser);
 
     void processMethod(const P4::ExternMethod *method) override;
@@ -440,10 +494,31 @@ class DeparserHdrEmitTranslatorPNA : public EBPF::DeparserPrepareBufferTranslato
                    unsigned alignment, EBPF::EBPFType *type, bool isMAC);
 };
 
+class SizeScanner : public EBPF::DeparserPrepareBufferTranslator {
+ protected:
+    const EBPF::EBPFDeparser *deparser;
+
+ public:
+    explicit SizeScanner(const EBPF::EBPFDeparser *deparser);
+
+    void processMethod(const P4::ExternMethod *method) override;
+    bool preorder(const IR::MethodCallStatement *) override;
+};
+
 class EBPFHashAlgorithmTypeFactoryPNA : public EBPF::EBPFHashAlgorithmTypeFactoryPSA {
  public:
     static EBPFHashAlgorithmTypeFactoryPNA *instance() {
         static EBPFHashAlgorithmTypeFactoryPNA factory;
+        return &factory;
+    }
+
+    EBPF::EBPFHashAlgorithmPSA *create(int type, const EBPF::EBPFProgram *program, cstring name);
+};
+
+class EBPFChecksumAlgorithmTypeFactoryPNA : public EBPF::EBPFHashAlgorithmTypeFactoryPSA {
+ public:
+    static EBPFChecksumAlgorithmTypeFactoryPNA *instance() {
+        static EBPFChecksumAlgorithmTypeFactoryPNA factory;
         return &factory;
     }
 

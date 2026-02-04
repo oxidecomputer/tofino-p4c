@@ -244,7 +244,7 @@ bool ToP4::preorder(const IR::Type_Name *t) {
     return false;
 }
 
-bool ToP4::preorder(const IR::Type_Stack *t) {
+bool ToP4::preorder(const IR::Type_Array *t) {
     dump(2);
     visit(t->elementType);
     builder.append("[");
@@ -660,7 +660,7 @@ bool ToP4::preorder(const IR::Type_Error *d) {
                                 })
                                 ->toVector();
     if (!isDeclaration || !userErrors.empty()) {
-        builder.append("error");
+        builder.append("error ");
 
         if (!isDeclaration) {
             return false;
@@ -1086,6 +1086,17 @@ bool ToP4::preorder(const IR::AssignmentStatement *a) {
     dump(2);
     visit(a->left);
     builder.append(" = ");
+    visit(a->right);
+    builder.endOfStatement();
+    return false;
+}
+
+bool ToP4::preorder(const IR::OpAssignmentStatement *a) {
+    dump(2);
+    visit(a->left);
+    builder.append(" ");
+    builder.append(a->getStringOp());
+    builder.append("= ");
     visit(a->right);
     builder.endOfStatement();
     return false;

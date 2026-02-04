@@ -23,6 +23,7 @@ limitations under the License.
 #include <filesystem>
 #include <set>
 
+#include "../p4/metrics/metricsStructure.h"
 #include "ir/configuration.h"
 #include "ir/pass_manager.h"
 #include "lib/compile_context.h"
@@ -35,6 +36,7 @@ class ToP4;
 
 /// Standard include paths for .p4 header files. The values are determined by
 /// `configure`.
+// TODO: This should be std::filesystem::path.
 extern const char *p4includePath;
 extern const char *p4_14includePath;
 
@@ -106,11 +108,14 @@ class ParserOptions : public Util::Options {
     bool isAnnotationDisabled(const IR::Annotation *a) const;
     /// Search and set 'includePathOut' to be the first valid path from the
     /// list of possible relative paths.
-    bool searchForIncludePath(const char *&includePathOut, std::vector<cstring> relativePaths,
-                              const char *);
+    static bool searchForIncludePath(const char *&includePathOut,
+                                     const std::vector<cstring> &userSpecifiedPaths,
+                                     const char *exename);
     /// If true do not generate #include statements.
     /// Used for debugging.
     bool noIncludes = false;
+    /// Holds code metric values, makes them accessible during the entire compilation.
+    Metrics metrics;
 };
 
 /// A compilation context which exposes compiler options and a compiler

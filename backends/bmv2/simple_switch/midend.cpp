@@ -59,6 +59,7 @@ limitations under the License.
 #include "midend/removeSelectBooleans.h"
 #include "midend/removeUnusedParameters.h"
 #include "midend/replaceSelectRange.h"
+#include "midend/simplifyExternMethod.h"
 #include "midend/simplifyKey.h"
 #include "midend/simplifySelectCases.h"
 #include "midend/simplifySelectList.h"
@@ -74,9 +75,13 @@ SimpleSwitchMidEnd::SimpleSwitchMidEnd(CompilerOptions &options, std::ostream *o
     auto *evaluator = new P4::EvaluatorPass(&refMap, &typeMap);
     if (!BMV2::SimpleSwitchContext::get().options().loadIRFromJson) {
         auto *convertEnums = new P4::ConvertEnums(&typeMap, new EnumOn32Bits("v1model.p4"_cs));
+        ParserConfig config;
         addPasses(
             {options.ndebug ? new P4::RemoveAssertAssume(&typeMap) : nullptr,
              new P4::CheckTableSize(),
+             new P4::TypeChecking(&refMap, &typeMap),
+             new P4::SimplifyExternMethodCalls(&typeMap),
+             new P4::TypeChecking(&refMap, &typeMap),
              new CheckUnsupported(),
              new P4::RemoveMiss(&typeMap),
              new P4::EliminateNewtype(&typeMap),
@@ -121,7 +126,7 @@ SimpleSwitchMidEnd::SimpleSwitchMidEnd(CompilerOptions &options, std::ostream *o
                  "meters"_cs,
                  "support_timeout"_cs,
              }),
-             new P4::SimplifyControlFlow(&typeMap),
+             new P4::SimplifyControlFlow(&typeMap, true),
              new P4::EliminateTypedef(&typeMap),
              new P4::CompileTimeOperations(),
              new P4::TableHit(&typeMap),
@@ -131,7 +136,7 @@ SimpleSwitchMidEnd::SimpleSwitchMidEnd(CompilerOptions &options, std::ostream *o
              // control plane API, we remove them as well for P4-14 programs.
              {isv1 ? new P4::RemoveUnusedActionParameters(&refMap) : nullptr},
              new P4::TypeChecking(&refMap, &typeMap),
-             {options.loopsUnrolling ? new P4::ParsersUnroll(true, &refMap, &typeMap) : nullptr},
+             {options.loopsUnrolling ? new P4::ParsersUnroll(config, &refMap, &typeMap) : nullptr},
              evaluator,
              [this, evaluator]() { toplevel = evaluator->getToplevelBlock(); },
              new P4::MidEndLast()});

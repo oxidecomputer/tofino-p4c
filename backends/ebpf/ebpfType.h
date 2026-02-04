@@ -88,7 +88,7 @@ class EBPFStackType : public EBPFType, public IHasWidth {
     unsigned size;
 
  public:
-    EBPFStackType(const IR::Type_Stack *type, EBPFType *elementType)
+    EBPFStackType(const IR::Type_Array *type, EBPFType *elementType)
         : EBPFType(type), elementType(elementType), size(type->getSize()) {
         CHECK_NULL(type);
         CHECK_NULL(elementType);
@@ -109,10 +109,11 @@ class EBPFScalarType : public EBPFType, public IHasWidth {
  public:
     const unsigned width;
     const bool isSigned;
+    const bool isvariable;
     explicit EBPFScalarType(const IR::Type_Bits *bits)
-        : EBPFType(bits), width(bits->size), isSigned(bits->isSigned) {}
+        : EBPFType(bits), width(bits->size), isSigned(bits->isSigned), isvariable(false) {}
     explicit EBPFScalarType(const IR::Type_Varbits *bits)
-        : EBPFType(bits), width(bits->size), isSigned(false) {}
+        : EBPFType(bits), width(bits->size), isSigned(false), isvariable(true) {}
     unsigned bytesRequired() const { return ROUNDUP(width, 8); }
     unsigned alignment() const;
     void emit(CodeBuilder *builder) override;
@@ -169,6 +170,7 @@ class EBPFStructType : public EBPFType, public IHasWidth {
     std::vector<EBPFField *> fields;
     unsigned width;
     unsigned implWidth;
+    bool packed;
 
     explicit EBPFStructType(const IR::Type_StructLike *strct);
     void declare(CodeBuilder *builder, cstring id, bool asPointer) override;

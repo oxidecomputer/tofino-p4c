@@ -86,13 +86,13 @@ void PnaNicBackend::convert(const IR::ToplevelBlock *tlb) {
                                   new SkipControls(&structure.non_pipeline_controls)),
         new P4::MoveActionsToTables(refMap, typeMap),
         new P4::TypeChecking(refMap, typeMap),
-        new P4::SimplifyControlFlow(typeMap),
+        new P4::SimplifyControlFlow(typeMap, true),
         new LowerExpressions(typeMap),
         new PassRepeated({new P4::ConstantFolding(typeMap), new P4::StrengthReduction(typeMap)}),
         new P4::TypeChecking(refMap, typeMap),
         new P4::RemoveComplexExpressions(typeMap,
                                          new ProcessControls(&structure.pipeline_controls)),
-        new P4::SimplifyControlFlow(typeMap),
+        new P4::SimplifyControlFlow(typeMap, true),
         new P4::RemoveAllUnusedDeclarations(P4::RemoveUnusedPolicy()),
         // Converts the DAG into a TREE (at least for expressions)
         // This is important later for conversion to JSON.
@@ -318,7 +318,7 @@ void ExternConverter_InternetChecksum::convertExternInstance(UNUSED ConversionCo
     auto inst = c->to<IR::Declaration_Instance>();
     cstring name = inst->controlPlaneName();
     auto trim = inst->controlPlaneName().find(".");
-    auto block = inst->controlPlaneName().trim(trim);
+    auto block = inst->controlPlaneName().before(trim);
     auto pnaStructure = static_cast<PnaProgramStructure *>(ctxt->structure);
     auto mainParser = pnaStructure->parsers.at("main_parser"_cs)->controlPlaneName();
     auto mainDeparser = pnaStructure->deparsers.at("main_deparser"_cs)->controlPlaneName();

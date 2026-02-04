@@ -22,19 +22,23 @@ void IR::ForStatement::visit_children(THIS *self, Visitor &v) {
     v.visit(self->annotations, "annotations");
     v.visit(self->init, "init");
     if (auto *cfv = v.controlFlowVisitor()) {
+        LOG4("for loop top" << Log::indent);
         ControlFlowVisitor::SaveGlobal outer(*cfv, "-BREAK-"_cs, "-CONTINUE-"_cs);
         ControlFlowVisitor *top = nullptr;
         while (true) {
             top = &cfv->flow_clone();
             cfv->visit(self->condition, "condition", 1000);
+            LOG4("for loop after condition");
             auto &inloop = cfv->flow_clone();
             inloop.visit(self->body, "body");
             inloop.flow_merge_global_from("-CONTINUE-"_cs);
+            LOG4("for loop before updates");
             inloop.visit(self->updates, "updates");
             inloop.flow_merge(*top);
             if (inloop == *top) break;
             cfv->flow_copy(inloop);
         }
+        LOG4("for loop exit" << Log::unindent);
         cfv->flow_merge_global_from("-BREAK-"_cs);
     } else {
         /* Since there is a variable number of init statements (0 or more), we
@@ -50,8 +54,8 @@ void IR::ForStatement::visit_children(THIS *self, Visitor &v) {
     }
 }
 
-void IR::ForStatement::visit_children(Visitor &v) { visit_children(this, v); }
-void IR::ForStatement::visit_children(Visitor &v) const { visit_children(this, v); }
+void IR::ForStatement::visit_children(Visitor &v, const char *) { visit_children(this, v); }
+void IR::ForStatement::visit_children(Visitor &v, const char *) const { visit_children(this, v); }
 
 template <class THIS>
 void IR::ForInStatement::visit_children(THIS *self, Visitor &v) {
@@ -59,41 +63,44 @@ void IR::ForInStatement::visit_children(THIS *self, Visitor &v) {
     v.visit(self->decl, "decl", 0);
     v.visit(self->collection, "collection", 2);
     if (auto *cfv = v.controlFlowVisitor()) {
+        LOG4("for in loop top" << Log::indent);
         ControlFlowVisitor::SaveGlobal outer(*cfv, "-BREAK-"_cs, "-CONTINUE-"_cs);
         ControlFlowVisitor *top = nullptr;
         do {
             top = &cfv->flow_clone();
             cfv->visit(self->ref, "ref", 1);
+            LOG4("for in loop before body");
             cfv->visit(self->body, "body", 3);
             cfv->flow_merge_global_from("-CONTINUE-"_cs);
         } while (*cfv != *top);
+        LOG4("for loop exit" << Log::unindent);
         cfv->flow_merge_global_from("-BREAK-"_cs);
     } else {
         v.visit(self->ref, "ref", 1);
         v.visit(self->body, "body", 3);
     }
 }
-void IR::ForInStatement::visit_children(Visitor &v) { visit_children(this, v); }
-void IR::ForInStatement::visit_children(Visitor &v) const { visit_children(this, v); }
+void IR::ForInStatement::visit_children(Visitor &v, const char *) { visit_children(this, v); }
+void IR::ForInStatement::visit_children(Visitor &v, const char *) const { visit_children(this, v); }
 
-void IR::BreakStatement::visit_children(Visitor &v) const {
+void IR::BreakStatement::visit_children(Visitor &v, const char *) const {
     if (auto *cfv = v.controlFlowVisitor()) {
         cfv->flow_merge_global_to("-BREAK-"_cs);
         cfv->setUnreachable();
     }
 }
-void IR::BreakStatement::visit_children(Visitor &v) {
-    return const_cast<const IR::BreakStatement *>(this)->visit_children(v);
+void IR::BreakStatement::visit_children(Visitor &v, const char *name) {
+    return const_cast<const IR::BreakStatement *>(this)->visit_children(v, name);
 }
 
-void IR::ContinueStatement::visit_children(Visitor &v) const {
+void IR::ContinueStatement::visit_children(Visitor &v, const char *) const {
     if (auto *cfv = v.controlFlowVisitor()) {
         cfv->flow_merge_global_to("-CONTINUE-"_cs);
         cfv->setUnreachable();
     }
 }
-void IR::ContinueStatement::visit_children(Visitor &v) {
-    return const_cast<const IR::ContinueStatement *>(this)->visit_children(v);
+void IR::ContinueStatement::visit_children(Visitor &v, const char *name) {
+    return const_cast<const IR::ContinueStatement *>(this)->visit_children(v, name);
 }
 
 }  // namespace P4

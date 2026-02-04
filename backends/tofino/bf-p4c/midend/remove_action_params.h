@@ -23,8 +23,8 @@
  *
  * This moves action parameters out of the actions.
  */
-#ifndef BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_
-#define BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_
+#ifndef BACKENDS_TOFINO_BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_
+#define BACKENDS_TOFINO_BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_
 
 #include "frontends/p4/removeParameters.h"
 
@@ -48,8 +48,8 @@ class DoRemoveActionParametersTofino : public P4::DoRemoveActionParameters {
         for (auto abc : action->body->components) {
             /* iterate thought all statements, and find the uses of smeta */
             /* if the only use is in mark_to_drop -- that's not a use! */
-            if (abc->is<IR::AssignmentStatement>()) {
-                auto as = abc->to<IR::AssignmentStatement>();
+            if (abc->is<IR::BaseAssignmentStatement>()) {
+                auto as = abc->to<IR::BaseAssignmentStatement>();
                 // TODO: Handle assignment statements with expressions
                 if (p->name == as->left->toString())
                     paramUses++;
@@ -194,4 +194,4 @@ class RemoveActionParameters : public PassManager {
 
 }  // end namespace BFN
 
-#endif /* BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_ */
+#endif /* BACKENDS_TOFINO_BF_P4C_MIDEND_REMOVE_ACTION_PARAMS_H_ */

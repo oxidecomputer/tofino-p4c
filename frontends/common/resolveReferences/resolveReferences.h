@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_
-#define COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_
+#ifndef FRONTENDS_COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_
+#define FRONTENDS_COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/inlined_vector.h"
@@ -90,8 +90,9 @@ class ResolutionContext : virtual public Visitor, public DeclarationLookup {
     /// Resolve a refrence to a type @p type.
     const IR::Type *resolveType(const IR::Type *type) const;
 
-    const IR::IDeclaration *getDeclaration(const IR::Path *path, bool notNull = false) const;
-    const IR::IDeclaration *getDeclaration(const IR::This *, bool notNull = false) const;
+    const IR::IDeclaration *getDeclaration(const IR::Path *path,
+                                           bool notNull = false) const override;
+    const IR::IDeclaration *getDeclaration(const IR::This *, bool notNull = false) const override;
 
     /// Returns the set of decls that exist in the given namespace.
     auto getDeclarations(const IR::INamespace *ns) const {
@@ -186,4 +187,4 @@ class CheckShadowing : public PassManager {
 
 }  // namespace P4
 
-#endif /* COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_ */
+#endif /* FRONTENDS_COMMON_RESOLVEREFERENCES_RESOLVEREFERENCES_H_ */

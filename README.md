@@ -188,18 +188,13 @@ sudo dpkg -i /path/to/package.deb
 ```
 
 ### Installing P4C from source
-1.  Clone the repository. It includes submodules, so be sure to use
-    `--recursive` to pull them in:
+1.  Clone the repository.
     ```
-    git clone --recursive https://github.com/p4lang/p4c.git
-    ```
-    If you forgot `--recursive`, you can update the submodules at any time using:
-    ```
-    git submodule update --init --recursive
+    git clone https://github.com/p4lang/p4c.git
     ```
 
 2.  Install [dependencies](#dependencies). You can find specific instructions
-    for Ubuntu 20.04 [here](#ubuntu-dependencies) and for macOS 11
+    for Ubuntu 22.04 [here](#ubuntu-dependencies) and for macOS 11
     [here](#macos-dependencies).  You can also look at the
     [CI installation script](https://github.com/p4lang/p4c/blob/main/tools/ci-build.sh).
 
@@ -267,7 +262,7 @@ If you plan to contribute to P4C, you'll find more useful information
 
 ## Dependencies
 
-Ubuntu 20.04 is the officially supported platform for P4C. There's also
+Ubuntu 22.04 is the officially supported platform for P4C. There's also
 unofficial support for macOS 11. Other platforms are untested; you can try to
 use them, but YMMV.
 
@@ -285,7 +280,7 @@ use them, but YMMV.
 
 - C++ boost library
 
-- Python 3 for scripting and running tests
+- Python 3 and uv for scripting and running tests
 
 - Optional: Documentation generation requires Doxygen (1.13.2) and Graphviz (2.38.0 or higher).
 
@@ -305,7 +300,11 @@ libfl-dev libboost-dev libboost-iostreams-dev \
 libboost-graph-dev llvm pkg-config python3 python3-pip \
 tcpdump
 
-pip3 install --user -r requirements.txt
+```
+Python dependencies can be installed using `uv`:
+```bash
+curl -LsSf https://astral.sh/uv/0.6.12/install.sh | sh
+uv sync
 ```
 
 **For documentation building:**
@@ -332,7 +331,7 @@ git clone --depth 1 -b v2.3.4 https://github.com/jothepro/doxygen-awesome-css ./
 ```
 
 `P4C` also depends on Google Protocol Buffers (Protobuf). `P4C` requires version
-3.0 or higher, so the packaged version provided in Ubuntu 20.04 **should**
+3.0 or higher, so the packaged version provided in Ubuntu 22.04 **should**
 work. However, P4C typically installs its own version of Protobuf using CMake's `FetchContent` module
 (at the moment, 3.25.3). If you are experiencing issues with the Protobuf version shipped with your OS distribution, we recommend that to install Protobuf 3.25.3 from source. You can find instructions
 [here](https://github.com/protocolbuffers/protobuf/blob/v3.25.3/src/README.md).
@@ -354,9 +353,9 @@ P4C requires a CMake version of at least 3.16.3 or higher. On older systems, a n
 ```bash
 sudo dnf install -y cmake g++ git automake libtool gc-devel bison flex \
 libfl-devel gmp-devel boost-devel boost-iostreams boost-graph llvm pkg-config \
-python3 python3-pip tcpdump
+python3 python3-pip tcpdump uv
 
-sudo pip3 install -r requirements.txt
+uv sync
 ```
 
 **For documentation building:**
@@ -582,7 +581,7 @@ The P4C CMakeLists.txt will use that name to figure the full path of the files t
 
 clang-format, black, and isort need to be installed before the linter can be used. They can be installed with the following command:
 ```
-pip3 install --user "clang-format==18.1.0" "black==24.3.0" "isort==5.13.2"
+uv pip install "clang-format==18.1.8" "black==24.3.0" "isort==5.13.2"
 ```
 clang-format can be checked using the `make clang-format` command. Complaints can be fixed by running `make clang-format-fix-errors`. black and isort can be checked using the `make black` or `make isort` command respectively. Complaints can be fixed by running `make black-fix-errors` or `make isort-fix-errors`.
 

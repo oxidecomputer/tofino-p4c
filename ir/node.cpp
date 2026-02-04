@@ -50,12 +50,12 @@ void IR::Node::traceCreation() const {
 int IR::Node::currentId = 0;
 
 void IR::Node::toJSON(JSONGenerator &json) const {
-    json << json.indent << "\"Node_ID\" : " << id << "," << std::endl
-         << json.indent << "\"Node_Type\" : " << node_type_name();
+    json.emit("Node_ID", id);
+    json.emit("Node_Type", node_type_name());
 }
 
 IR::Node::Node(JSONLoader &json) : id(-1) {
-    json.load("Node_ID", id);
+    json.load("Node_ID", id) || json.error("missing field Node_Id");
     if (id < 0)
         id = currentId++;
     else if (id >= currentId)
@@ -85,9 +85,9 @@ cstring IR::dbp(const IR::INode *node) {
         } else if (node->is<IR::PathExpression>() || node->is<IR::Path>() ||
                    node->is<IR::TypeNameExpression>() || node->is<IR::Constant>() ||
                    node->is<IR::Type_Name>() || node->is<IR::Type_Base>() ||
-                   node->is<IR::Type_Specialized>()) {
+                   node->is<IR::ITypeVar>() || node->is<IR::Type_Specialized>()) {
             node->getNode()->Node::dbprint(str);
-            str << " " << node->toString();
+            str << " " << node->getNode();
         } else {
             node->getNode()->Node::dbprint(str);
         }
@@ -100,8 +100,7 @@ cstring IR::Node::prepareSourceInfoForJSON(Util::SourceInfo &si, unsigned *lineN
     if (!si.isValid()) {
         return nullptr;
     }
-    if (is<IR::AssignmentStatement>()) {
-        auto assign = to<IR::AssignmentStatement>();
+    if (auto assign = to<IR::BaseAssignmentStatement>()) {
         si = (assign->left->srcInfo + si) + assign->right->srcInfo;
     }
     return si.toSourcePositionData(lineNumber, columnNumber);
@@ -146,16 +145,22 @@ void IR::Node::sourceInfoToJSON(JSONGenerator &json) const {
         // Same reasoning as above.
         return;
     }
+    json.emit_tag("Source_Info");
+    auto state = json.begin_object();
+    json.emit("filename", fName);
+    json.emit("line", lineNumber);
+    json.emit("column", columnNumber);
+    json.emit("source_fragment", si.toBriefSourceFragment());
+    json.end_object(state);
+}
 
-    json << "," << std::endl << json.indent++ << "\"Source_Info\" : {" << std::endl;
-
-    json << json.indent << "\"filename\" : " << fName << "," << std::endl;
-    json << json.indent << "\"line\" : " << lineNumber << "," << std::endl;
-    json << json.indent << "\"column\" : " << columnNumber << "," << std::endl;
-    json << json.indent << "\"source_fragment\" : " << si.toBriefSourceFragment().escapeJson()
-         << std::endl;
-
-    json << --json.indent << "}";
+void IR::Node::sourceInfoFromJSON(JSONLoader &json) {
+    if (auto si = JSONLoader(json, "Source_Info")) {
+        si.load("filename", srcInfo.filename);
+        si.load("line", srcInfo.line);
+        si.load("column", srcInfo.column);
+        si.load("source_fragment", srcInfo.srcBrief);
+    }
 }
 
 IRNODE_DEFINE_APPLY_OVERLOAD(Node, , )

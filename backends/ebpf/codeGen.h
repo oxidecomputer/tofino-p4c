@@ -82,8 +82,8 @@ class CodeGenInspector : public Inspector {
     }
     bool isPointerVariable(cstring name) { return asPointerVariables.count(name) > 0; }
 
-    bool notSupported(const IR::Expression *expression) {
-        ::P4::error(ErrorType::ERR_UNSUPPORTED, "%1%: not yet implemented", expression);
+    bool notSupported(const IR::Node *n) {
+        ::P4::error(ErrorType::ERR_UNSUPPORTED, "%1%: not yet implemented", n);
         return false;
     }
 
@@ -117,6 +117,7 @@ class CodeGenInspector : public Inspector {
     bool preorder(const IR::Type_Enum *type) override;
     void emitAssignStatement(const IR::Type *ltype, const IR::Expression *lexpr, cstring lpath,
                              const IR::Expression *rexpr);
+    bool preorder(const IR::BaseAssignmentStatement *s) override { return notSupported(s); }
     bool preorder(const IR::AssignmentStatement *s) override;
     bool preorder(const IR::BlockStatement *s) override;
     bool preorder(const IR::MethodCallStatement *s) override;
@@ -126,12 +127,14 @@ class CodeGenInspector : public Inspector {
     bool preorder(const IR::IfStatement *s) override;
 
     void widthCheck(const IR::Node *node) const;
+    bool scalarType(const IR::Node *node) const;
     void emitAndConvertByteOrder(const IR::Expression *expr, cstring byte_order);
-    void emitTCBinaryOperation(const IR::Operation_Binary *b, bool isScalar);
+    void emitTCBinaryOperation(const IR::Operation_Binary *);
     void emitTCAssignmentEndianessConversion(const IR::Type *ltype, const IR::Expression *lexpr,
                                              const IR::Expression *rexpr, cstring lpath);
     void getBitAlignment(const IR::Expression *expression);
     bool storeBitAlignment(const IR::Type *ltype, const IR::Expression *lexpr, cstring lpath);
+    void emitTCLarge(const IR::Operation_Binary *, unsigned int);  // catchall
 };
 
 class EBPFInitializerUtils {

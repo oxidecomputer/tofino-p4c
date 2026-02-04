@@ -23,12 +23,12 @@ Version Notes:
 """
 
 major_version = 1
-medium_version = 0
-minor_version = 1
+minor_version = 0
+patch_version = 1
 
 
 def get_schema_version():
-    return "%s.%s.%s" % (str(major_version), str(medium_version), str(minor_version))
+    return "%s.%s.%s" % (str(major_version), str(minor_version), str(patch_version))
 
 
 ########################################################
@@ -111,7 +111,6 @@ class StageCharacteristics(jsl.Document):
 
 
 class MatchTables(jsl.Document):
-
     class StageDetails(jsl.Document):
         title = "StageDetails"
         description = "Information about table power usage on a per-stage basis."

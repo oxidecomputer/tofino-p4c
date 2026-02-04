@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#ifndef TYPECHECKING_TYPECHECKER_H_
-#define TYPECHECKING_TYPECHECKER_H_
+#ifndef FRONTENDS_P4_TYPECHECKING_TYPECHECKER_H_
+#define FRONTENDS_P4_TYPECHECKING_TYPECHECKER_H_
 
 #include "frontends/common/resolveReferences/referenceMap.h"
 #include "frontends/common/resolveReferences/resolveReferences.h"
@@ -252,7 +252,7 @@ class TypeInferenceBase : public virtual Visitor, public ResolutionContext {
     const IR::Node *postorder(const IR::Type_Extern *type);
     const IR::Node *postorder(const IR::StructField *field);
     const IR::Node *postorder(const IR::Type_Header *type);
-    const IR::Node *postorder(const IR::Type_Stack *type);
+    const IR::Node *postorder(const IR::Type_Array *type);
     const IR::Node *postorder(const IR::Type_Struct *type);
     const IR::Node *postorder(const IR::Type_HeaderUnion *type);
     const IR::Node *postorder(const IR::Type_Typedef *type);
@@ -328,7 +328,12 @@ class TypeInferenceBase : public virtual Visitor, public ResolutionContext {
     const IR::Node *postorder(const IR::ReturnStatement *stat);
     const IR::Node *postorder(const IR::IfStatement *stat);
     const IR::Node *postorder(const IR::SwitchStatement *stat);
+    const IR::Node *common_assign(const IR::BaseAssignmentStatement *stat, const IR::Type *);
     const IR::Node *postorder(const IR::AssignmentStatement *stat);
+    const IR::Node *postorder(const IR::OpAssignmentStatement *stat);
+    const IR::Node *shiftAssign(const IR::OpAssignmentStatement *stat);
+    const IR::Node *postorder(const IR::ShlAssign *stat) { return shiftAssign(stat); }
+    const IR::Node *postorder(const IR::ShrAssign *stat) { return shiftAssign(stat); }
     const IR::Node *postorder(const IR::ForInStatement *stat);
     const IR::Node *postorder(const IR::ActionListElement *elem);
     const IR::Node *postorder(const IR::KeyElement *elem);
@@ -395,7 +400,7 @@ class ReadOnlyTypeInference : public virtual Inspector, public TypeInferenceBase
     void postorder(const IR::Type_Extern *type) override;
     void postorder(const IR::StructField *field) override;
     void postorder(const IR::Type_Header *type) override;
-    void postorder(const IR::Type_Stack *type) override;
+    void postorder(const IR::Type_Array *type) override;
     void postorder(const IR::Type_Struct *type) override;
     void postorder(const IR::Type_HeaderUnion *type) override;
     void postorder(const IR::Type_Typedef *type) override;
@@ -472,6 +477,9 @@ class ReadOnlyTypeInference : public virtual Inspector, public TypeInferenceBase
     void postorder(const IR::IfStatement *stat) override;
     void postorder(const IR::SwitchStatement *stat) override;
     void postorder(const IR::AssignmentStatement *stat) override;
+    void postorder(const IR::OpAssignmentStatement *stat) override;
+    void postorder(const IR::ShlAssign *stat) override;
+    void postorder(const IR::ShrAssign *stat) override;
     void postorder(const IR::ForInStatement *stat) override;
     void postorder(const IR::ActionListElement *elem) override;
     void postorder(const IR::KeyElement *elem) override;
@@ -531,7 +539,7 @@ class TypeInference : public virtual Transform, public TypeInferenceBase {
     const IR::Node *postorder(IR::Type_Extern *type) override;
     const IR::Node *postorder(IR::StructField *field) override;
     const IR::Node *postorder(IR::Type_Header *type) override;
-    const IR::Node *postorder(IR::Type_Stack *type) override;
+    const IR::Node *postorder(IR::Type_Array *type) override;
     const IR::Node *postorder(IR::Type_Struct *type) override;
     const IR::Node *postorder(IR::Type_HeaderUnion *type) override;
     const IR::Node *postorder(IR::Type_Typedef *type) override;
@@ -608,6 +616,9 @@ class TypeInference : public virtual Transform, public TypeInferenceBase {
     const IR::Node *postorder(IR::IfStatement *stat) override;
     const IR::Node *postorder(IR::SwitchStatement *stat) override;
     const IR::Node *postorder(IR::AssignmentStatement *stat) override;
+    const IR::Node *postorder(IR::OpAssignmentStatement *stat) override;
+    const IR::Node *postorder(IR::ShlAssign *stat) override;
+    const IR::Node *postorder(IR::ShrAssign *stat) override;
     const IR::Node *postorder(IR::ForInStatement *stat) override;
     const IR::Node *postorder(IR::ActionListElement *elem) override;
     const IR::Node *postorder(IR::KeyElement *elem) override;
@@ -645,4 +656,4 @@ class ApplyTypesToExpressions : public Transform {
 
 }  // namespace P4
 
-#endif /* TYPECHECKING_TYPECHECKER_H_ */
+#endif /* FRONTENDS_P4_TYPECHECKING_TYPECHECKER_H_ */

@@ -50,7 +50,7 @@ class ComputeDefUse : public Inspector,
     ComputeDefUse *clone() const override {
         auto *rv = new ComputeDefUse(*this);
         rv->uid = ++uid_ctr;
-        LOG8("ComputeDefUse::clone " << rv->uid);
+        LOG8("ComputeDefUse::clone " << rv->uid << " <- " << uid);
         return rv;
     }
     void flow_merge(Visitor &) override;
@@ -169,7 +169,7 @@ class ComputeDefUse : public Inspector,
     bool preorder(const IR::Type *) override { return false; }
     bool preorder(const IR::Vector<IR::Annotation> *) override { return false; }
     bool preorder(const IR::KeyElement *) override;
-    bool preorder(const IR::AssignmentStatement *) override;
+    bool preorder(const IR::BaseAssignmentStatement *) override;
     const IR::Expression *do_read(def_info_t &, const IR::Expression *, const Context *);
     const IR::Expression *do_write(def_info_t &, const IR::Expression *, const Context *);
     bool preorder(const IR::PathExpression *) override;
@@ -201,6 +201,8 @@ class ComputeDefUse : public Inspector,
         return out << cdu.defuse;
     }
 };
+
+std::ostream &operator<<(std::ostream &, const hvec_set<const ComputeDefUse::loc_t *> &);
 
 }  // namespace P4
 
