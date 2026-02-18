@@ -131,8 +131,10 @@ PHV_AnalysisPass::PHV_AnalysisPass(const BFN_Options &options, PhvInfo &phv, Phv
         &uses,
         new PhvInfo::DumpPhvFields(phv, uses),
         // Determine candidates for mocha PHVs.
-        Device::phvSpec().hasContainerKind(PHV::Kind::mocha) ? &non_mocha_dark : nullptr,
-        Device::phvSpec().hasContainerKind(PHV::Kind::mocha)
+        (Device::phvSpec().hasContainerKind(PHV::Kind::mocha) && !options.disable_mocha_allocation)
+            ? &non_mocha_dark
+            : nullptr,
+        (Device::phvSpec().hasContainerKind(PHV::Kind::mocha) && !options.disable_mocha_allocation)
             ? new CollectMochaCandidates(phv, uses, deps.red_info, non_mocha_dark)
             : nullptr,
         Device::phvSpec().hasContainerKind(PHV::Kind::dark)

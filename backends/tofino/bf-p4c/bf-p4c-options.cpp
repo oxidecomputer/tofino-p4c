@@ -322,6 +322,13 @@ BFN_Options::BFN_Options() {
         },
         "Disable allocation to dark containers");
     registerOption(
+        "--disable-mocha-allocation", nullptr,
+        [this](const char *) {
+            disable_mocha_allocation = true;
+            return true;
+        },
+        "Disable allocation to mocha containers");
+    registerOption(
         "--disable-parser-state-merging", nullptr,
         [this](const char *) {
             disable_parser_state_merging = true;
