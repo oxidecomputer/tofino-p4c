@@ -15,7 +15,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(PkgConfig QUIET)
-if(DEFINED RAPIDJSON_DIR)
+if(RAPIDJSON_DIR)
   include_directories(${RAPIDJSON_DIR})
   include_directories("${CMAKE_SOURCE_DIR}/oxide/rapidjson/include")
 else()
