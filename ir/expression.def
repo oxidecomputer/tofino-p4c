@@ -285,10 +285,12 @@ class Constant : Literal {
     Constant(intmax_t v, unsigned base = 10) :
         Literal(Type_InfInt::get()), value(v), base(base) {}
 #else
+#ifndef __sun
     Constant(long v, unsigned base = 10) :
         Literal(Type_InfInt::get()), value(v), base(base) {}
     Constant(unsigned long v, unsigned base = 10) :
         Literal(Type_InfInt::get()), value(v), base(base) {}
+#endif
     Constant(intmax_t v, unsigned base = 10) :
         Literal(Type_InfInt::get()), value(v), base(base) {}
 #endif

@@ -56,3 +56,5 @@ backends/tofino/third_party/
 
 # Python uv
 uv.lock
+
+rapidjson

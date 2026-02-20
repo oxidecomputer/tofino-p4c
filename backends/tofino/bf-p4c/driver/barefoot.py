@@ -100,7 +100,7 @@ class BarefootBackend(BackendDriver):
         self.add_command('preclean-dirs', 'find')
         self.add_command('preclean-files', 'find')
         self.add_command('preclean-runtime', 'rm')
-        self.add_command('preprocessor', 'cc')
+        self.add_command('preprocessor', 'cpp')
         self.add_command('compiler', os.path.join(os.environ['P4C_BIN_DIR'], 'p4c-barefoot'))
         self.add_command('cleaner', 'rm')
 

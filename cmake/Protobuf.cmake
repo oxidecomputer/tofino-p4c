@@ -20,7 +20,7 @@ macro(p4c_obtain_protobuf)
     # We recommend the current P4C_PROTOBUF_VERSION.
     find_package(Protobuf ${P4C_PROTOBUF_VERSION} CONFIG ${P4C_PROTOBUF_PATHS})
     if(NOT Protobuf_FOUND)
-      find_package(Protobuf REQUIRED CONFIG ${P4C_PROTOBUF_PATHS})
+	    find_package(Protobuf REQUIRED CONFIG ${P4C_PROTOBUF_PATHS})
       message(
         WARNING
           "Major Protobuf version does not match with the expected ${P4C_PROTOBUF_VERSION} version."

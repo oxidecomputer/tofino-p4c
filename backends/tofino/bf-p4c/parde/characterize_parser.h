@@ -194,7 +194,7 @@ class CharacterizeParser : public Inspector {
     }
 
     static double round(double val, int decimal_point) {
-        unsigned round_by = pow(10, decimal_point);
+        unsigned round_by = pow((double)10, (double)decimal_point);
         return (val * round_by) / round_by;
     }
 
