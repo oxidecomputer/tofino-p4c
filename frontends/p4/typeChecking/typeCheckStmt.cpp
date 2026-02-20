@@ -35,19 +35,11 @@ const IR::Node *TypeInferenceBase::postorder(const IR::SwitchStatement *stat) {
 
     if (auto ae = type->to<IR::Type_ActionEnum>()) {
         // switch (table.apply(...))
-        absl::flat_hash_map<cstring, const IR::Node *, Util::Hash> foundLabels;
-        const IR::Node *foundDefault = nullptr;
         for (auto c : stat->cases) {
             if (c->label->is<IR::DefaultExpression>()) {
-                if (foundDefault)
-                    typeError("%1%: multiple 'default' labels %2%", c->label, foundDefault);
-                foundDefault = c->label;
                 continue;
             } else if (auto pe = c->label->to<IR::PathExpression>()) {
                 cstring label = pe->path->name.name;
-                auto [it, inserted] = foundLabels.emplace(label, c->label);
-                if (!inserted)
-                    typeError("%1%: 'switch' label duplicates %2%", c->label, it->second);
                 if (!ae->contains(label))
                     typeError("%1% is not a legal label (action name)", c->label);
             } else {
@@ -58,8 +50,6 @@ const IR::Node *TypeInferenceBase::postorder(const IR::SwitchStatement *stat) {
         // switch (expression)
         Comparison comp;
         comp.left = stat->expression;
-        if (isCompileTimeConstant(stat->expression))
-            warn(ErrorType::WARN_MISMATCH, "%1%: constant expression in switch", stat->expression);
 
         auto *sclone = stat->clone();
         bool changed = false;
@@ -69,8 +59,10 @@ const IR::Node *TypeInferenceBase::postorder(const IR::SwitchStatement *stat) {
             auto lt = getType(c->label);
             if (lt == nullptr) continue;
             if (lt->is<IR::Type_InfInt>() && type->is<IR::Type_Bits>()) {
-                c = new IR::SwitchCase(c->srcInfo, new IR::Cast(c->label->srcInfo, type, c->label),
-                                       c->statement);
+                c = new IR::SwitchCase(
+                    c->srcInfo,
+                    new IR::Cast(c->label->srcInfo, type, c->label, /* implicit */ true),
+                    c->statement);
                 setType(c->label, type);
                 setCompileTimeConstant(c->label);
                 changed = true;
@@ -125,9 +117,8 @@ const IR::Node *TypeInferenceBase::postorder(const IR::ReturnStatement *statemen
     return statement;
 }
 
-const IR::Node *TypeInferenceBase::postorder(const IR::AssignmentStatement *assign) {
-    LOG3("TI Visiting " << dbp(getOriginal()));
-    auto ltype = getType(assign->left);
+const IR::Node *TypeInferenceBase::common_assign(const IR::BaseAssignmentStatement *assign,
+                                                 const IR::Type *ltype) {
     if (ltype == nullptr) return assign;
 
     if (!isLeftValue(assign->left)) {
@@ -137,8 +128,45 @@ const IR::Node *TypeInferenceBase::postorder(const IR::AssignmentStatement *assi
     }
 
     auto newInit = assignment(assign, ltype, assign->right);
-    if (newInit != assign->right)
-        assign = new IR::AssignmentStatement(assign->srcInfo, assign->left, newInit);
+    if (newInit != assign->right) {
+        auto *clone = assign->clone();
+        clone->right = newInit;
+        assign = clone;
+    }
+    return assign;
+}
+
+const IR::Node *TypeInferenceBase::postorder(const IR::AssignmentStatement *assign) {
+    LOG3("TI Visiting " << dbp(getOriginal()));
+    return TypeInferenceBase::common_assign(assign, getType(assign->left));
+}
+
+const IR::Node *TypeInferenceBase::postorder(const IR::OpAssignmentStatement *assign) {
+    LOG3("TI Visiting " << dbp(getOriginal()));
+    auto ltype = getType(assign->left);
+    if (ltype && !ltype->is<IR::Type_Bits>()) {
+        typeError("%1%=: cannot be applied to '%2%' with type '%3%'", assign->getStringOp(),
+                  assign->left, ltype->toString());
+        return assign;
+    }
+    return TypeInferenceBase::common_assign(assign, ltype);
+}
+
+const IR::Node *TypeInferenceBase::shiftAssign(const IR::OpAssignmentStatement *assign) {
+    LOG3("TI Visiting " << dbp(getOriginal()));
+    auto ltype = getType(assign->left);
+    auto rtype = getType(assign->left);
+    if (!ltype) return assign;
+    if (!isLeftValue(assign->left)) {
+        typeError("Expression %1% cannot be the target of an assignment", assign->left);
+        LOG2(assign->left);
+    } else if (!ltype->is<IR::Type_Bits>()) {
+        typeError("%1%=: cannot be applied to '%2%' with type '%3%'", assign->getStringOp(),
+                  assign->left, ltype->toString());
+    } else if (rtype && !rtype->is<IR::Type_Bits>() && !rtype->is<IR::Type_InfInt>()) {
+        typeError("%1%=: cannot be applied with '%2%' with type '%3%'", assign->getStringOp(),
+                  assign->right, rtype->toString());
+    }
     return assign;
 }
 
@@ -163,7 +191,7 @@ const IR::Node *TypeInferenceBase::postorder(const IR::ForInStatement *forin) {
                                            forin->body);
         else
             delete rclone;
-    } else if (auto *stack = ctype->to<IR::Type_Stack>()) {
+    } else if (auto *stack = ctype->to<IR::Type_Array>()) {
         if (!canCastBetween(stack->elementType, ltype))
             typeError("%1% does not match header stack type %2%", forin->ref, ctype);
     } else if (auto *list = ctype->to<IR::Type_P4List>()) {

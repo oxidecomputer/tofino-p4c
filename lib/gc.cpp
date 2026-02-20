@@ -221,7 +221,8 @@ void raw_free(void *ptr) {
 
 }  // namespace
 
-void *realloc(void *ptr, size_t size) {
+#ifndef __sun
+void *realloc(void *ptr, ::size_t size) {
     if (!done_init) {
         if (started_init) {
             // called from within GC_INIT, so we can't call it again.  Fall back to using
@@ -269,6 +270,7 @@ void *calloc(size_t size, size_t elsize) {
     if (rv) memset(rv, 0, size);
     return rv;
 }
+#endif
 int posix_memalign(void **memptr, size_t alignment, size_t size)
 #ifdef __GLIBC__
     __THROW

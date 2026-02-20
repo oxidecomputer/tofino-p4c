@@ -12,6 +12,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+#include "ir/dump.h"
 #include "typeChecker.h"
 
 namespace P4 {
@@ -53,7 +54,7 @@ DEFINE_POSTORDER(IR::Type_Enum)
 DEFINE_POSTORDER(IR::Type_Extern)
 DEFINE_POSTORDER(IR::StructField)
 DEFINE_POSTORDER(IR::Type_Header)
-DEFINE_POSTORDER(IR::Type_Stack)
+DEFINE_POSTORDER(IR::Type_Array)
 DEFINE_POSTORDER(IR::Type_Struct)
 DEFINE_POSTORDER(IR::Type_HeaderUnion)
 DEFINE_POSTORDER(IR::Type_Typedef)
@@ -130,6 +131,9 @@ DEFINE_POSTORDER(IR::ReturnStatement)
 DEFINE_POSTORDER(IR::IfStatement)
 DEFINE_POSTORDER(IR::SwitchStatement)
 DEFINE_POSTORDER(IR::AssignmentStatement)
+DEFINE_POSTORDER(IR::OpAssignmentStatement)
+DEFINE_POSTORDER(IR::ShlAssign)
+DEFINE_POSTORDER(IR::ShrAssign)
 DEFINE_POSTORDER(IR::ForInStatement)
 DEFINE_POSTORDER(IR::ActionListElement)
 DEFINE_POSTORDER(IR::KeyElement)
@@ -140,6 +144,7 @@ DEFINE_POSTORDER(IR::Annotation)
 Visitor::profile_t TypeInference::init_apply(const IR::Node *node) {
     auto rv = Transform::init_apply(node);
     TypeInferenceBase::start(node);
+    LOG5(Dump(node));
 
     return rv;
 }

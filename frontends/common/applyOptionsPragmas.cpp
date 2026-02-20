@@ -44,13 +44,30 @@ void ApplyOptionsPragmas::end_apply() {
     // XXX(seth): It'd be nice if the user's command line options took
     // precedence; currently, pragmas override the command line.
     auto &compilerOptionsInstance = P4CContext::get().options();
-    compilerOptionsInstance.process(options.size(), const_cast<char *const *>(options.data()));
+    compilerOptionsInstance.process_options(options.size(),
+                                            const_cast<char *const *>(options.data()));
 }
 
 std::optional<IOptionPragmaParser::CommandLineOptions> P4COptionPragmaParser::tryToParse(
     const IR::Annotation *annotation) {
     auto pragmaName = annotation->name.name;
     if (pragmaName == "diagnostic") return parseDiagnostic(annotation);
+    if (supportCommandLinePragma && pragmaName == "command_line") {
+        IOptionPragmaParser::CommandLineOptions options;
+        auto *args = annotation->needsParsing()
+                         ? P4ParserDriver::parseExpressionList(annotation->srcInfo,
+                                                               annotation->getUnparsed())
+                         : &annotation->getExpr();
+        for (auto *arg : *args) {
+            if (auto *a = arg->to<IR::StringLiteral>()) {
+                options.push_back(a->value.c_str());
+            } else {
+                // can this happen?  annotation parser should require only strings
+                warning("ignoring non-string %1% in @command_line", a);
+            }
+        }
+        return options;
+    }
     return std::nullopt;
 }
 

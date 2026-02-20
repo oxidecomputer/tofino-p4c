@@ -108,7 +108,7 @@ void MidEnd::addDefaultPasses() {
         mkConvertKeys(),
         mkConvertEnums(),
         new P4::ConstantFolding(&typeMap),
-        new P4::SimplifyControlFlow(&typeMap),
+        new P4::SimplifyControlFlow(&typeMap, true),
         // Eliminate extraneous cases in select statements.
         new P4::SimplifySelectCases(&typeMap, false),
         // Expand lookahead assignments into sequences of field assignments.
@@ -121,7 +121,7 @@ void MidEnd::addDefaultPasses() {
         new P4::SimplifyComparisons(&typeMap),
         // Expand header and struct assignments into sequences of field assignments.
         new PassRepeated({
-            new P4::CopyStructures(&typeMap, false, true, nullptr),
+            new P4::CopyStructures(&typeMap, false, true, false, nullptr),
         }),
         new P4::RemoveParserControlFlow(&typeMap),
         // Flatten nested list expressions.
@@ -140,12 +140,11 @@ void MidEnd::addDefaultPasses() {
         // Local copy propagation and dead-code elimination.
         new P4::LocalCopyPropagation(
             &typeMap, nullptr,
-            [this](const Visitor::Context *context, const IR::Expression *expr) {
-                return localCopyPropPolicy(context, expr);
-            }),
+            [this](const Visitor::Context *context, const IR::Expression *expr,
+                   const DeclarationLookup *) { return localCopyPropPolicy(context, expr); }),
         new P4::ConstantFolding(&typeMap),
         new P4::MoveDeclarations(),
-        new P4::SimplifyControlFlow(&typeMap),
+        new P4::SimplifyControlFlow(&typeMap, true),
         // Replace any slices in the left side of assignments and convert them to casts.
         new P4::RemoveLeftSlices(&typeMap),
         // Remove loops from parsers by unrolling them as far as the stack indices allow.
@@ -155,7 +154,7 @@ void MidEnd::addDefaultPasses() {
         // Convert tuples into structs.
         new P4::EliminateTuples(&typeMap),
         new P4::ConstantFolding(&typeMap),
-        new P4::SimplifyControlFlow(&typeMap),
+        new P4::SimplifyControlFlow(&typeMap, true),
         // Perform a last round of type-checking before passes which do not type-check begin.
         new P4::TypeChecking(&refMap, &typeMap, true),
     });

@@ -446,7 +446,7 @@ struct PushContext {
         current.parent = stack;
         current.node = current.original = node;
         current.child_index = 0;
-        current.child_name = "";
+        current.child_name = nullptr;
         current.depth = stack ? stack->depth + 1 : 1;
         assert(current.depth < 10000);  // stack overflow?
         stack = &current;
@@ -471,7 +471,7 @@ class ForwardChildren : public Visitor {
 }  // namespace
 
 const IR::Node *Modifier::apply_visitor(const IR::Node *n, const char *name) {
-    if (ctxt && name) ctxt->child_name = name;
+    if (ctxt) ctxt->child_name = name;
     if (n) {
         PushContext local(ctxt, n);
         switch (visited->try_start(n, visitDagOnce)) {
@@ -489,10 +489,10 @@ const IR::Node *Modifier::apply_visitor(const IR::Node *n, const char *name) {
                 local.current.node = copy;
                 if (!dontForwardChildrenBeforePreorder) {
                     ForwardChildren forward_children(*visited);
-                    copy->visit_children(forward_children);
+                    copy->visit_children(forward_children, name);
                 }
                 if (copy->apply_visitor_preorder(*this)) {
-                    copy->visit_children(*this);
+                    copy->visit_children(*this, name);
                     copy->apply_visitor_postorder(*this);
                 }
                 if (visited->finish(n, copy)) (n = copy)->validate();
@@ -508,7 +508,7 @@ const IR::Node *Modifier::apply_visitor(const IR::Node *n, const char *name) {
 }
 
 const IR::Node *Inspector::apply_visitor(const IR::Node *n, const char *name) {
-    if (ctxt && name) ctxt->child_name = name;
+    if (ctxt) ctxt->child_name = name;
     if (n && !join_flows(n)) {
         PushContext local(ctxt, n);
         switch (visited->try_start(n, visitDagOnce)) {
@@ -520,7 +520,7 @@ const IR::Node *Inspector::apply_visitor(const IR::Node *n, const char *name) {
                 break;
             default:  // New or Revisit
                 if (n->apply_visitor_preorder(*this)) {
-                    n->visit_children(*this);
+                    n->visit_children(*this, name);
                     n->apply_visitor_postorder(*this);
                 }
                 visited->finish(n);
@@ -536,7 +536,7 @@ const IR::Node *Inspector::apply_visitor(const IR::Node *n, const char *name) {
 }
 
 const IR::Node *Transform::apply_visitor(const IR::Node *n, const char *name) {
-    if (ctxt && name) ctxt->child_name = name;
+    if (ctxt) ctxt->child_name = name;
     if (n) {
         PushContext local(ctxt, n);
         switch (visited->try_start(n, visitDagOnce)) {
@@ -554,7 +554,7 @@ const IR::Node *Transform::apply_visitor(const IR::Node *n, const char *name) {
                 local.current.node = copy;
                 if (!dontForwardChildrenBeforePreorder) {
                     ForwardChildren forward_children(*visited);
-                    copy->visit_children(forward_children);
+                    copy->visit_children(forward_children, name);
                 }
                 bool save_prune_flag = prune_flag;
                 prune_flag = false;
@@ -581,7 +581,7 @@ const IR::Node *Transform::apply_visitor(const IR::Node *n, const char *name) {
                     }
                 }
                 if (!prune_flag) {
-                    copy->visit_children(*this);
+                    copy->visit_children(*this, name);
                     final_result = copy->apply_visitor_postorder(*this);
                 }
                 prune_flag = save_prune_flag;
@@ -651,11 +651,12 @@ void ControlFlowVisitor::init_join_flows(const IR::Node *root) {
         flow_join_points = new std::remove_reference<decltype(*flow_join_points)>::type;
     applySetupJoinPoints(root);
 #if DEBUG_FLOW_JOIN
-    erase_if(*flow_join_points,
-             [this](flow_join_points_t::value_type &el) { return el.second.count == 0; });
+    P4::erase_if(*flow_join_points,
+                 [this](flow_join_points_t::value_type &el) { return el.second.count == 0; });
 #endif
-    erase_if(*flow_join_points,
-             [this](flow_join_points_t::value_type &el) { return filter_join_point(el.first); });
+    P4::erase_if(*flow_join_points, [this](flow_join_points_t::value_type &el) {
+        return filter_join_point(el.first);
+    });
 }
 
 bool ControlFlowVisitor::join_flows(const IR::Node *n) {
@@ -854,8 +855,8 @@ std::ostream &operator<<(std::ostream &out, const ControlFlowVisitor::flow_join_
     out << Brief;
     for (auto &i : info.parents) {
         out << Log::endl
-            << "  " << *i.first << " [" << i.first->id << "] " << "exist=" << i.second.exist
-            << " visited=" << i.second.visited;
+            << "  " << *i.first << " [" << i.first->id << "] "
+            << "exist=" << i.second.exist << " visited=" << i.second.visited;
     }
     dbsetflags(out, flags);
 #endif

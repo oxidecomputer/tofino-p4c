@@ -32,6 +32,10 @@ if (ENABLE_MULTITHREAD)
   add_definitions("-DGC_THREADS=1")
   add_definitions("-DGC_NO_THREAD_REDIRECTS=1")
 endif()
+# TODO: figure out why include_directories() isn't getting this done
+if(RAPIDJSON_DIR)
+  add_definitions("-I${RAPIDJSON_DIR}")
+endif()
 
 # We need to abstract away the targets enumerated in the schema files,
 # so that we do not tip our hand on future targets.
@@ -42,12 +46,12 @@ endif()
 # Note that we need to do this early, before we process any of the rules
 # using schemas (context, manifest, phv, etc.) and packaging the compiler
 # interfaces tools.
-set (INTERFACES_DIR ${BFN_P4C_SOURCE_DIR}/compiler_interfaces)
 set(COMPILER_SCHEMA_TARGETS "${INTERFACES_DIR}/schemas/targets.py")
 set(DEFAULT_SCHEMA_TARGETS "['tofino', 'tofino2', 'tofino2m', 'tofino2u', 'tofino2a0']")
 set(DEFAULT_SCHEMA_P4ARCH "['tna', 't2na', 'psa', 'PISA', 'v1model']")
 file(WRITE ${COMPILER_SCHEMA_TARGETS} "TARGETS = ${DEFAULT_SCHEMA_TARGETS}\n")
 file(APPEND ${COMPILER_SCHEMA_TARGETS} "P4ARCHITECTURES = ${DEFAULT_SCHEMA_P4ARCH}\n")
+
 
 get_schema_version(manifest_schema MANIFEST_SCHEMA_VERSION)
 MESSAGE(STATUS "Found manifest schema version ${MANIFEST_SCHEMA_VERSION}")
@@ -150,7 +154,6 @@ set (BF_P4C_BACKEND_COMMON_SRCS
   common/check_field_corruption.cpp
   common/check_for_unimplemented_features.cpp
   common/check_uninitialized_read.cpp
-  common/dump_pipe.cpp
   common/pragma/collect_global_pragma.cpp
   common/elim_unused.cpp
   common/empty_tableseq.cpp
@@ -558,9 +561,6 @@ target_compile_definitions(bfp4c
   INTERFACE "-DCONFIG_PREFIX=\"${CMAKE_INSTALL_PREFIX}\""
   INTERFACE "-DCONFIG_PKGDATADIR=\"${CMAKE_INSTALL_PREFIX}/${P4C_ARTIFACTS_OUTPUT_DIRECTORY}\""
 )
-target_compile_definitions(bfp4c
-  INTERFACE "-DHAVE_JBAY=1"
-)
 if (ENABLE_BAREFOOT_INTERNAL)
   target_compile_definitions(bfp4c
     INTERFACE "-DBAREFOOT_INTERNAL=1"
@@ -733,12 +733,16 @@ if (EXISTS ${COMPILER_SCHEMA_TARGETS})
   list(APPEND SCHEMA_FILES ${COMPILER_SCHEMA_TARGETS})
 endif()
 
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dist/p4c-build-logs
-  POST_BUILD
-  COMMAND PYTHONPATH=${INTERFACES_DIR}:$ENV{PYTHONPATH} pyinstaller --workpath=${CMAKE_CURRENT_BINARY_DIR}/build --distpath=${CMAKE_CURRENT_BINARY_DIR}/dist ${INTERFACES_DIR}/p4c-build-logs.spec
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dist/p4c-build-logs
+  COMMAND PYTHONPATH=${INTERFACES_DIR}:$ENV{PYTHONPATH} pyinstaller
+          --workpath=${CMAKE_CURRENT_BINARY_DIR}/build
+          --distpath=${CMAKE_CURRENT_BINARY_DIR}/dist
+          ${INTERFACES_DIR}/p4c-build-logs.spec
   DEPENDS ${LOGGING_FILES} ${SCHEMA_FILES} ${INTERFACES_DIR}/p4c-build-logs.spec
   WORKING_DIRECTORY ${INTERFACES_DIR}
-  COMMENT "Package logging tools")
+  COMMENT "Packaging logging tools"
+)
 
 add_custom_target(p4c-build-logs
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/dist/p4c-build-logs)
@@ -918,6 +922,7 @@ if (ENABLE_GTESTS)
                                 "${CMAKE_CURRENT_SOURCE_DIR}/test/gtest/tofino_gtest_utils.cpp")
   # test_bf_gtest_helpers should be in its own testlib - & requies 'whole_archive' hack!
   # Leave it in GTEST_BF_P4C_SOURCES for now.
+  include_directories("${CMAKE_SOURCE_DIR}/oxide/rapidjson/include")
   target_link_libraries (bf_gtest_support PRIVATE absl::flat_hash_map PRIVATE absl::flat_hash_set PRIVATE ir ${P4C_LIB_DEPS})
   target_include_directories(
     bf_gtest_support

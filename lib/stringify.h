@@ -24,8 +24,13 @@ limitations under the License.
 #include <string_view>
 #include <type_traits>
 
-// FIXME: Replace with big_int_fwd.h with Boost 1.84+
+#ifdef __sun
+// On helios, we are using a version of boost that is newer than 1.83,
+// so we need a different header file.
+#include "big_int_fwd.h"
+#else
 #include "big_int.h"
+#endif
 #include "cstring.h"
 
 namespace P4 {

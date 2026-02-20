@@ -56,6 +56,7 @@ limitations under the License.
 #include "midend/removeSelectBooleans.h"
 #include "midend/removeUnusedParameters.h"
 #include "midend/replaceSelectRange.h"
+#include "midend/simplifyExternMethod.h"
 #include "midend/simplifyKey.h"
 #include "midend/simplifySelectCases.h"
 #include "midend/simplifySelectList.h"
@@ -76,6 +77,7 @@ class PnaEnumOn32Bits : public P4::ChooseEnumRepresentation {
     bool convert(const IR::Type_Enum *type) const override {
         if (type->name == "PNA_PacketPath_t") return true;
         if (type->name == "PNA_MeterColor_t") return true;
+        if (type->name == "PNA_Direction_t") return true;
         if (type->srcInfo.isValid()) {
             auto sourceFile = type->srcInfo.getSourceFile();
             if (sourceFile.endsWith(filename))
@@ -94,11 +96,11 @@ PnaNicMidEnd::PnaNicMidEnd(CompilerOptions &options, std::ostream *outStream)
     : PortableMidEnd(options) {
     auto convertEnums = new P4::ConvertEnums(&typeMap, new PnaEnumOn32Bits("pna.p4"_cs));
     auto evaluator = new P4::EvaluatorPass(&refMap, &typeMap);
-    std::function<bool(const Context *, const IR::Expression *)> policy =
-        [=](const Context *, const IR::Expression *e) -> bool {
+    P4::LocalCopyPropPolicyCallbackFn policy = [=](const Context *, const IR::Expression *e,
+                                                   const DeclarationLookup *refMap) -> bool {
         auto mce = e->to<IR::MethodCallExpression>();
         if (mce == nullptr) return true;
-        auto mi = P4::MethodInstance::resolve(mce, &refMap, &typeMap);
+        auto mi = P4::MethodInstance::resolve(mce, refMap, &typeMap);
         auto em = mi->to<P4::ExternMethod>();
         if (em == nullptr) return true;
         if (em->originalExternType->name.name == "Register" || em->method->name.name == "read")
@@ -110,6 +112,9 @@ PnaNicMidEnd::PnaNicMidEnd(CompilerOptions &options, std::ostream *outStream)
     if (BMV2::PnaNicContext::get().options().loadIRFromJson == false) {
         addPasses({
             options.ndebug ? new P4::RemoveAssertAssume(&typeMap) : nullptr,
+            new P4::TypeChecking(&refMap, &typeMap),
+            new P4::SimplifyExternMethodCalls(&typeMap),
+            new P4::TypeChecking(&refMap, &typeMap),
             new CheckUnsupported(),
             new P4::RemoveMiss(&typeMap),
             new P4::EliminateNewtype(&typeMap),
@@ -147,7 +152,7 @@ PnaNicMidEnd::PnaNicMidEnd(CompilerOptions &options, std::ostream *outStream)
             new P4::ValidateTableProperties({"pna_implementation"_cs, "pna_direct_counter"_cs,
                                              "pna_direct_meter"_cs, "pna_idle_timeout"_cs,
                                              "size"_cs}),
-            new P4::SimplifyControlFlow(&typeMap),
+            new P4::SimplifyControlFlow(&typeMap, true),
             new P4::CompileTimeOperations(),
             new P4::TableHit(&typeMap),
             new P4::EliminateSwitch(&typeMap),

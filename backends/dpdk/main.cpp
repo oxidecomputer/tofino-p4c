@@ -35,7 +35,6 @@ limitations under the License.
 #include "ir/json_loader.h"
 #include "lib/error.h"
 #include "lib/exceptions.h"
-#include "lib/exename.h"
 #include "lib/gc.h"
 #include "lib/log.h"
 #include "lib/nullstream.h"
@@ -86,7 +85,7 @@ int main(int argc, char *const argv[]) {
 
         if (program == nullptr || ::P4::errorCount() > 0) return 1;
         try {
-            P4::P4COptionPragmaParser optionsPragmaParser;
+            P4::P4COptionPragmaParser optionsPragmaParser(true);
             program->apply(P4::ApplyOptionsPragmas(optionsPragmaParser));
 
             P4::FrontEnd frontend;
@@ -105,7 +104,7 @@ int main(int argc, char *const argv[]) {
         }
         std::istream inJson(&fb);
         JSONLoader jsonFileLoader(inJson);
-        if (jsonFileLoader.json == nullptr) {
+        if (!jsonFileLoader) {
             ::P4::error(ErrorType::ERR_INVALID, "Not valid input file");
             return 1;
         }
@@ -136,7 +135,7 @@ int main(int argc, char *const argv[]) {
         if (::P4::errorCount() > 1 || toplevel == nullptr || toplevel->getMain() == nullptr)
             return 1;
         if (!options.dumpJsonFile.empty())
-            JSONGenerator(*openFile(options.dumpJsonFile, true), true) << program << std::endl;
+            JSONGenerator(*openFile(options.dumpJsonFile, true), true).emit(program);
     } catch (const std::exception &bug) {
         std::cerr << bug.what() << std::endl;
         return 1;

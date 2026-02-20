@@ -118,9 +118,5 @@ add_custom_target(tc_includes ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${P4C_BINARY_DIR}/p4include/tc
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${P4C_SOURCE_DIR}/p4include/tc/pna.p4 ${P4C_BINARY_DIR}/p4include/tc)
 
-set(P4TC_COMPILER_DRIVER "${CMAKE_CURRENT_SOURCE_DIR}/run-tc-test.py")
-
-set (P4_16_SUITES
-  "${P4C_SOURCE_DIR}/testdata/p4tc_samples/*.p4")
-
-p4c_add_tests("p4tc" ${P4TC_COMPILER_DRIVER} "${P4_16_SUITES}" "")
+#### Tests ####
+include(${CMAKE_CURRENT_SOURCE_DIR}/TCTests.cmake)

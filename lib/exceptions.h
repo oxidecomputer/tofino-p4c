@@ -82,7 +82,7 @@ class P4CExceptionBase : public std::exception {
         message = ::P4::bug_helper(fmt, "", "", std::forward<Args>(args)...);
     }
 
-    const char *what() const noexcept { return message.c_str(); }
+    const char *what() const noexcept override { return message.c_str(); }
 };
 
 /// This class indicates a bug in the compiler
@@ -134,6 +134,7 @@ class CompilationError : public P4CExceptionBase {
         : P4CExceptionBase(format, std::forward<Args>(args)...) {}
 };
 
+/// FIXME: Use __VA_OPT__ for calls without an input string?
 #define BUG(...)                                                      \
     do {                                                              \
         throw P4::Util::CompilerBug(__LINE__, __FILE__, __VA_ARGS__); \

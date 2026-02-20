@@ -282,7 +282,8 @@ inline const T *findContext(const Visitor::Context *c) {
 /**
  * \ingroup midend
  */
-bool skipRegisterActionOutput(const Visitor::Context *ctxt, const IR::Expression *) {
+bool skipRegisterActionOutput(const Visitor::Context *ctxt, const IR::Expression *,
+                              const DeclarationLookup *) {
     auto c = findContext<IR::Declaration_Instance>(ctxt);
     if (!c) return true;
 
@@ -301,7 +302,7 @@ bool skipRegisterActionOutput(const Visitor::Context *ctxt, const IR::Expression
     auto params = method->parameters->to<IR::ParameterList>();
     if (!params) return true;
 
-    auto assign = dynamic_cast<const IR::AssignmentStatement *>(ctxt->parent->node);
+    auto assign = dynamic_cast<const IR::BaseAssignmentStatement *>(ctxt->parent->node);
     if (!assign) return true;
 
     auto dest_path = assign->left->to<IR::PathExpression>();
@@ -328,14 +329,12 @@ bool skipFlexibleHeader(const Visitor::Context *, const IR::Type_StructLike *e) 
  */
 class CompileTimeOperations : public P4::CompileTimeOperations {
     bool preorder(const IR::Declaration_Instance *di) {
-#ifdef HAVE_JBAY
         // JBay supports (limited) div/mod in RegisterAction
         if (Device::currentDevice() == Device::JBAY) {
             if (auto st = di->type->to<IR::Type_Specialized>()) {
                 if (st->baseType->path->name.name.endsWith("Action")) return false;
             }
         }
-#endif
         return true;
     }
 };
@@ -432,9 +431,11 @@ MidEnd::MidEnd(BFN_Options &options) {
         new VisitFunctor([=](const IR::Node *root) -> const IR::Node * {
             auto toplevel = evaluator->getToplevelBlock();
             auto main = toplevel->getMain();
-            if (main == nullptr)
-                // nothing further to do
-                return nullptr;
+            if (main == nullptr) {
+                // Nothing further to do. Exit early.
+                early_exit();
+                return root;
+            }
             for (auto arg : args_to_skip) {
                 if (!main->getConstructorParameters()->getDeclByName(arg)) continue;
                 if (auto a = main->getParameterValue(arg))

@@ -50,6 +50,10 @@ P4C_DIR=$(readlink -f ${THIS_DIR}/..)
 : "${ENABLE_BMV2:=ON}"
 # eBPF is enabled by default.
 : "${ENABLE_EBPF:=ON}"
+# P4TC is enabled by default.
+: "${ENABLE_P4TC:=ON}"
+# P4TC STF is only enabled when running p4tc tagged PRs.
+: "${INSTALL_STF_P4TC_DEPENDENCIES:=OFF}"
 # This is the list of back ends that can be enabled.
 # Back ends can be enabled from the command line with "ENABLE_[backend]=TRUE/FALSE"
 ENABLE_BACKENDS=("TOFINO" "BMV2" "EBPF" "UBPF" "DPDK"
@@ -68,13 +72,18 @@ function build_cmake_enabled_backend_string() {
   done
 }
 
+pushd ${P4C_DIR}
 
 . /etc/lsb-release
 
 # In Docker builds, sudo is not available. So make it a noop.
-if [ "$IN_DOCKER" == "TRUE" ]; then
+if [ "$IN_DOCKER" = "TRUE" ]; then
   echo "Executing within docker container."
-  function sudo() { command "$@"; }
+  # No-op function; just execute the command
+  sudo() { "$@"; }
+else
+  # Preserve PATH and environment variables when using sudo
+  sudo() { command sudo -E env PATH="$PATH" "$@"; }
 fi
 
 
@@ -104,8 +113,12 @@ fi
 
 sudo apt-get update
 sudo apt-get install -y --no-install-recommends ${P4C_DEPS}
-sudo pip3 install --upgrade pip
-sudo pip3 install -r ${P4C_DIR}/requirements.txt
+# Set up uv for Python dependency management.
+# TODO: Consider using a system-provided package here.
+sudo apt-get install -y python3-venv curl
+curl -LsSf https://astral.sh/uv/0.6.12/install.sh | sh
+uv sync
+uv tool update-shell
 
 if [ "${BUILD_GENERATOR,,}" == "ninja" ] && [ ! $(command -v ninja) ]
 then
@@ -119,24 +132,24 @@ fi
 if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
   ccache --set-config cache_dir=.ccache
   # For Ubuntu 18.04 install the pypi-supplied version of cmake instead.
-  sudo pip3 install cmake==3.16.3
+  uv pip install cmake==3.16.3
 fi
 ccache --set-config max_size=1G
 
 # ! ------  BEGIN BMV2 -----------------------------------------------
 function build_bmv2() {
-  # TODO: Remove this check once 18.04 is deprecated.
-  if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
-    P4C_RUNTIME_DEPS_BOOST="libboost-graph1.65.1 libboost-iostreams1.65.1"
-  else
-    P4C_RUNTIME_DEPS_BOOST="libboost-graph1.7* libboost-iostreams1.7*"
-  fi
 
   P4C_RUNTIME_DEPS="cpp \
                     ${P4C_RUNTIME_DEPS_BOOST} \
                     libgc1* \
                     libgmp-dev \
+                    python3-dev \
                     libnanomsg-dev"
+
+  # TODO: Remove this check once 18.04 is deprecated.
+  if [[ "${DISTRIB_RELEASE}" == "18.04" ]] ; then
+    P4C_RUNTIME_DEPS+=" libboost-graph1.65.1 libboost-iostreams1.65.1 "
+  fi
 
   # TODO: Remove this check once 18.04 is deprecated.
   if [[ "${DISTRIB_RELEASE}" == "18.04" ]] || [[ "$(which simple_switch 2> /dev/null)" != "" ]] ; then
@@ -146,19 +159,20 @@ function build_bmv2() {
     P4C_RUNTIME_DEPS+=" gcc-9 g++-9"
     export CC=gcc-9
     export CXX=g++-9
-  else
-   sudo apt-get install -y wget ca-certificates
-    # Add the p4lang opensuse repository.
-    echo "deb http://download.opensuse.org/repositories/home:/p4lang/xUbuntu_${DISTRIB_RELEASE}/ /" | sudo tee /etc/apt/sources.list.d/home:p4lang.list
-    curl -fsSL https://download.opensuse.org/repositories/home:p4lang/xUbuntu_${DISTRIB_RELEASE}/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_p4lang.gpg > /dev/null
-    P4C_RUNTIME_DEPS+=" p4lang-bmv2"
+  elif [[ "${DISTRIB_RELEASE}" != "24.04" ]] ; then
+    echo "Temporarily disabling retrieval of p4lang-bmv2 package until it is working"
+    #sudo apt-get install -y wget ca-certificates
+    ## Add the p4lang opensuse repository.
+    #echo "deb http://download.opensuse.org/repositories/home:/p4lang/xUbuntu_${DISTRIB_RELEASE}/ /" | sudo tee /etc/apt/sources.list.d/home:p4lang.list
+    #curl -fsSL https://download.opensuse.org/repositories/home:p4lang/xUbuntu_${DISTRIB_RELEASE}/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_p4lang.gpg > /dev/null
+    #P4C_RUNTIME_DEPS+=" p4lang-bmv2"
   fi
 
   sudo apt-get update && sudo apt-get install -y --no-install-recommends ${P4C_RUNTIME_DEPS}
 
   if [[ "${DISTRIB_RELEASE}" != "18.04" ]] ; then
     # To run PTF nanomsg tests. Not available on 18.04.
-    sudo pip3 install nnpy
+    uv pip install nnpy==1.4.2
   fi
 }
 
@@ -172,12 +186,10 @@ function build_ebpf() {
   P4C_EBPF_DEPS="libpcap-dev \
                  libelf-dev \
                  zlib1g-dev \
-                 llvm \
-                 clang \
                  iproute2 \
                  iptables \
                  net-tools"
-
+  P4C_EBPF_DEPS+=" llvm clang "
   sudo apt-get install -y --no-install-recommends ${P4C_EBPF_DEPS}
 }
 
@@ -213,12 +225,63 @@ if [[ "${ENABLE_EBPF}" == "ON" ]] ; then
 fi
 # ! ------  END EBPF -----------------------------------------------
 
+# ! ------  BEGIN P4TC -----------------------------------------------
+function install_stf_p4tc_test_deps() (
+    P4C_STF_P4TC_PACKAGES=" libmnl-dev \
+                             bridge-utils \
+                             python3-venv \
+                             virtme-ng \
+                             qemu-kvm \
+                             clang-15 \
+                             python3-scapy \
+                             qemu-system-x86"
+    sudo apt-get install -y --no-install-recommends ${P4C_STF_P4TC_PACKAGES}
+    git clone https://github.com/p4tc-dev/iproute2-p4tc-pub -b master-v17-rc8 ${P4C_DIR}/backends/tc/runtime/iproute2-p4tc-pub
+    ${P4C_DIR}/backends/tc/runtime/build-iproute2 ${P4C_DIR}/backends/tc/runtime
+    sudo apt-get install -y virtme-ng
+)
+
+function build_p4tc() {
+  P4TC_DEPS="libpcap-dev \
+             libelf-dev \
+             zlib1g-dev \
+             gcc-multilib \
+             net-tools \
+             flex \
+             libelf-dev \
+             pkg-config \
+             xtables-addons-source \
+             python3 \
+             python3-pip \
+             wget \
+             python3-argcomplete"
+
+  sudo apt-get install -y --no-install-recommends ${P4TC_DEPS}
+
+if [[ "${DISTRIB_RELEASE}" != "24.04" ]] ; then
+  wget https://apt.llvm.org/llvm.sh
+  sudo chmod +x llvm.sh
+  sudo ./llvm.sh 15
+  rm llvm.sh
+fi
+
+  git clone https://github.com/libbpf/libbpf/ -b v1.5.0 ${P4C_DIR}/backends/tc/runtime/libbpf
+  ${P4C_DIR}/backends/tc/runtime/build-libbpf
+
+  if [[ "${INSTALL_STF_P4TC_DEPENDENCIES}" == "ON" ]] ; then
+             install_stf_p4tc_test_deps
+  fi
+}
+if [[ "${ENABLE_P4TC}" == "ON" ]] ; then
+  build_p4tc
+fi
+# ! ------  END P4TC -----------------------------------------------
+
 # ! ------  BEGIN DPDK -----------------------------------------------
 function build_dpdk() {
   # Replace existing Protobuf with one that works.
   # TODO: Debug protobuf mismatch.
-  sudo -E pip3 uninstall -y protobuf
-  sudo pip3 install protobuf==3.20.3 netaddr==0.9.0
+  uv pip install protobuf==3.20.3 netaddr==0.9.0
 }
 
 if [[ "${ENABLE_DPDK}" == "ON" ]]; then
@@ -231,7 +294,7 @@ fi
 function build_tofino() {
     P4C_TOFINO_PACKAGES="rapidjson-dev"
     sudo apt-get install -y --no-install-recommends ${P4C_TOFINO_PACKAGES}
-    sudo pip3 install jsl==0.2.4 pyinstaller==6.11.0
+    uv pip install jsl=="0.2.4" pyinstaller=="6.11.0" jsonschema=="4.23.0" pyyaml=="6.0.2"
 }
 
 if [[ "${ENABLE_TOFINO}" == "ON" ]]; then
@@ -289,21 +352,18 @@ if [ "$ENABLE_SANITIZERS" == "ON" ]; then
 fi
 
 # Run CMake in the build folder.
-if [ -e build ]; then /bin/rm -rf build; fi
 mkdir -p ${P4C_DIR}/build
-cd ${P4C_DIR}/build
-cmake ${CMAKE_FLAGS} -G "${BUILD_GENERATOR}" ..
+uv run cmake -B ${P4C_DIR}/build ${CMAKE_FLAGS} -G "${BUILD_GENERATOR}" .
 
 # If CMAKE_ONLY is active, only run CMake. Do not build.
 if [ "$CMAKE_ONLY" == "OFF" ]; then
-  cmake --build . -- -j $(nproc)
-  sudo cmake --install .
+  uv run cmake --build ${P4C_DIR}/build -- -j $(nproc)
+  sudo uv run cmake --install ${P4C_DIR}/build
   # Print ccache statistics after building
   ccache -p -s
 fi
 
 if [[ "${IMAGE_TYPE}" == "build" ]] ; then
-  cd ~
   sudo apt-get purge -y ${P4C_DEPS} git
   sudo apt-get autoremove --purge -y
   rm -rf ${P4C_DIR} /var/cache/apt/* /var/lib/apt/lists/*
@@ -313,3 +373,5 @@ elif [[ "${IMAGE_TYPE}" == "test" ]] ; then
   echo 'Test image ready'
 
 fi
+
+popd

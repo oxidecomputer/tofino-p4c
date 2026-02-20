@@ -15,6 +15,7 @@ if [ "$IN_DOCKER" == "TRUE" ]; then
 fi
 
 sudo dnf install -y -q \
+    awk \
     automake \
     bison \
     boost-devel \
@@ -26,7 +27,7 @@ sudo dnf install -y -q \
     boost-test \
     boost-thread \
     ccache \
-    clang \
+    clang-15 \
     cmake \
     cpp \
     elfutils-libelf-devel \
@@ -51,16 +52,20 @@ sudo dnf install -y -q \
     procps-ng \
     python3 \
     python3-pip \
+    python3-virtualenv \
     python3-thrift \
+    uv \
+    curl \
     readline-devel \
     tcpdump \
     thrift-devel \
     valgrind \
     zlib-devel \
+    glibc-devel.i686 \
     ninja-build
 
-pip3 install --upgrade pip
-pip3 install -r ${P4C_DIR}/requirements.txt
+# Set up uv for Python dependency management.
+uv sync
 
 MAKEFLAGS="-j$(nproc)"
 export MAKEFLAGS
@@ -86,5 +91,8 @@ cd behavioral-model
 make -j$((`nproc`+1))
 make -j$((`nproc`+1)) install-strip
 popd
+
+git clone https://github.com/libbpf/libbpf/ -b v1.5.0 ${P4C_DIR}/backends/tc/runtime/libbpf
+${P4C_DIR}/backends/tc/runtime/build-libbpf
 
 rm -rf "${tmp_dir}"

@@ -144,7 +144,7 @@ bool P4Formatter::preorder(const IR::Type_Name *t) {
     return false;
 }
 
-bool P4Formatter::preorder(const IR::Type_Stack *t) {
+bool P4Formatter::preorder(const IR::Type_Array *t) {
     visit(t->elementType);
     builder.append("[");
     visit(t->size);
@@ -915,6 +915,16 @@ bool P4Formatter::preorder(const IR::Cast *c) {
 bool P4Formatter::preorder(const IR::AssignmentStatement *a) {
     visit(a->left);
     builder.append(" = ");
+    visit(a->right);
+    builder.endOfStatement();
+    return false;
+}
+
+bool P4Formatter::preorder(const IR::OpAssignmentStatement *a) {
+    visit(a->left);
+    builder.append(" ");
+    builder.append(a->getStringOp());
+    builder.append("= ");
     visit(a->right);
     builder.endOfStatement();
     return false;

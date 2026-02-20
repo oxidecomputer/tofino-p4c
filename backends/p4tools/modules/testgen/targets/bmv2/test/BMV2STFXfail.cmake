@@ -40,7 +40,6 @@ p4tools_add_xfail_reason(
   # terminate called after throwing an instance of 'std::runtime_error'
   # Type is not convertible to string
   control-hs-index-test3.p4
-  parser-unroll-test1.p4
   # terminate called after throwing an instance of 'std::out_of_range'
   control-hs-index-test2.p4
 )
@@ -106,6 +105,14 @@ p4tools_add_xfail_reason(
   "Unhandled node type in Bmv2V1ModelCmdStepper: ForStatement"
   issue4739.p4
   loop-3-clause-tricky2.p4
+)
+
+p4tools_add_xfail_reason(
+  "testgen-p4c-bmv2-stf"
+  "nested stack"
+  # testgen has issues with arrays
+  array1.p4
+  array2.p4
 )
 
 ####################################################################################################
@@ -189,7 +196,7 @@ p4tools_add_xfail_reason(
 
 p4tools_add_xfail_reason(
   "testgen-p4c-bmv2-stf"
-  "with type Type_Specialized is not a Type_Declaration"
+  "P4Testgen back end only supports a 'V1Switch' main"
   # Pipeline as a parameter of a switch, not a valid v1model program
   issue1304.p4
 )

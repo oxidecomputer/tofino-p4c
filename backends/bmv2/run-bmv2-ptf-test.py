@@ -42,7 +42,7 @@ PARSER.add_argument(
 PARSER.add_argument(
     "-n",
     "--num-ifaces",
-    default=8,
+    default=10,
     dest="num_ifaces",
     help="How many virtual interfaces to create.",
 )
@@ -91,7 +91,7 @@ class Options:
     # The base directory where tests are executed.
     rootdir: Path = Path(".")
     # The number of interfaces to create for this particular test.
-    num_ifaces: int = 8
+    num_ifaces: int = 10
     # Whether to use nanomsg for packet delivery as opposed to Linux veth interfaces.
     use_nn: bool = False
 
@@ -167,9 +167,13 @@ class NNEnv(PTFTestEnv):
         testutils.log.info(
             "---------------------- Start simple_switch_grpc ----------------------",
         )
+        simple_switch_bin = testutils.check_if_binary("simple_switch_grpc")
+        if not simple_switch_bin:
+            return None
+
         thrift_port = testutils.pick_tcp_port(GRPC_ADDRESS, THRIFT_PORT)
         simple_switch_grpc = (
-            f"simple_switch_grpc --thrift-port {thrift_port} --device-id 0 --log-file {switchlog} "
+            f"{simple_switch_bin} --thrift-port {thrift_port} --device-id 0 --log-file {switchlog} "
             f"--log-flush --packet-in ipc://{self.options.testdir}/bmv2_packets_1.ipc  --no-p4 "
             f"-- --grpc-server-addr {GRPC_ADDRESS}:{grpc_port} & "
         )
@@ -201,7 +205,7 @@ class NNEnv(PTFTestEnv):
         )
         # TODO: There is currently a bug where we can not support more than 344 ports at once.
         # The nanomsg test back end simply hangs, the reason is unclear.
-        port_range = "0-8"
+        port_range = f"0-{self.options.num_ifaces - 1}"
         run_ptf_cmd = (
             f"ptf --platform nn --device-socket 0-{{{port_range}}}@ipc://{self.options.testdir}/"
             f"bmv2_packets_1.ipc --pypath {pypath} "
@@ -236,6 +240,9 @@ class VethEnv(PTFTestEnv):
         if not self.bridge:
             testutils.log.error("Unable to run simple_switch_grpc without a bridge.")
             return None
+        simple_switch_bin = testutils.check_if_binary("simple_switch_grpc")
+        if not simple_switch_bin:
+            return None
         """Start simple_switch_grpc and return the process handle."""
         testutils.log.info(
             "---------------------- Start simple_switch_grpc ----------------------",
@@ -243,8 +250,8 @@ class VethEnv(PTFTestEnv):
         ifaces = self.get_iface_str(num_ifaces=self.options.num_ifaces)
         thrift_port = testutils.pick_tcp_port(GRPC_ADDRESS, THRIFT_PORT)
         simple_switch_grpc = (
-            f"simple_switch_grpc --thrift-port {thrift_port} --device-id 0 --log-file {switchlog} "
-            f"{ifaces} --log-flush -i 0@0 --no-p4 "
+            f"{simple_switch_bin} --thrift-port {thrift_port} --device-id 0 --log-file {switchlog} "
+            f"{ifaces} --log-flush --no-p4 "
             f"-- --grpc-server-addr {GRPC_ADDRESS}:{grpc_port}"
         )
         bridge_cmd = self.bridge.get_ns_prefix() + " " + simple_switch_grpc
@@ -271,7 +278,7 @@ class VethEnv(PTFTestEnv):
         ifaces = self.get_iface_str(num_ifaces=self.options.num_ifaces, prefix="br_")
         test_params = (
             f"grpcaddr='{GRPC_ADDRESS}:{grpc_port}';p4info='{info_name}';config='{json_name}';"
-            f"packet_wait_time='0.1';"
+            f"packet_wait_time='0.5';"
         )
         run_ptf_cmd = (
             f"ptf --pypath {pypath} {ifaces} --log-file {self.options.testdir.joinpath('ptf.log')} "

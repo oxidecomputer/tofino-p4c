@@ -479,7 +479,7 @@ int main(int ac, char **av) {
             // Print out the IR for p4i after frontend (--toJson "-" signifies stdout)
             auto &irFile = irFilePath != "-" ? *openFile(irFilePath, false) : std::cout;
             LOG3("IR dump after frontend to " << irFilePath);
-            JSONGenerator(irFile, true) << program << std::endl;
+            JSONGenerator(irFile, true).emit(program);
         }
 
 #if BAREFOOT_INTERNAL
@@ -555,7 +555,7 @@ int main(int ac, char **av) {
             Logging::Manifest &manifest;
 
          public:
-            explicit manifest_generator_guard(Logging::Manifest &manifest) : manifest(manifest){};
+            explicit manifest_generator_guard(Logging::Manifest &manifest) : manifest(manifest) {};
             ~manifest_generator_guard() {
                 try {
                     manifest.setSuccess(::errorCount() == 0);

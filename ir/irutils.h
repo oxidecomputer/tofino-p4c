@@ -4,12 +4,13 @@
 #include <initializer_list>
 #include <vector>
 
-#include "lib/big_int_util.h"
 #include "lib/source_file.h"
+
+namespace P4 {
 
 class Transform;
 
-namespace P4::IR {
+namespace IR {
 
 // Forward-declare some IR classes that are used in function declarations.
 class BoolLiteral;
@@ -61,7 +62,7 @@ const IR::Constant *getMaxValueConstant(const Type *t, const Util::SourceInfo &s
 /// Type_StructLike     StructExpression (fields filled with getDefaultValue)
 /// Type_Fragment       recurses into getDefaultValue
 /// Type_BaseList       ListExpression (fields filled with getDefaultValue)
-/// Type_Stack          HeaderStackExpression (fields filled with getDefaultValue)
+/// Type_Array          HeaderStackExpression (fields filled with getDefaultValue)
 /// Definition: https://p4.org/p4-spec/docs/P4-16-working-spec.html#sec-default-values
 const IR::Expression *getDefaultValue(const Type *type, const Util::SourceInfo &srcInfo = {},
                                       bool valueRequired = false);
@@ -128,6 +129,8 @@ const IR::Node *inlineBlock(const Transform &, std::initializer_list<const IR::S
 const IR::Node *inlineBlock(const Transform &, const IR::IndexedVector<IR::StatOrDecl> &);
 const IR::Node *inlineBlock(const Transform &, IR::IndexedVector<IR::StatOrDecl> &&);
 
-}  // namespace P4::IR
+}  // namespace IR
+
+}  // namespace P4
 
 #endif /* IR_IRUTILS_H_ */

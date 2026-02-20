@@ -23,9 +23,6 @@ if (CMAKE_BUILD_TYPE STREQUAL Release OR CMAKE_BUILD_TYPE STREQUAL RelWithDebInf
   add_definitions("-DRELEASE_BUILD=1")
 endif()
 
-# JBay is always enabled, the preprocessor guard is deprecated
-add_definitions("-DHAVE_JBAY=1")
-
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 if (ENABLE_STATIC_LIBS)
@@ -56,6 +53,8 @@ endif()
 set(BOOST_MIN_VERSION "1.58.0")
 find_package(Boost ${BOOST_MIN_VERSION} REQUIRED)
 
+set(INTERFACES_DIR ${BFN_P4C_SOURCE_DIR}/compiler_interfaces)
+
 # Get the version from bf-p4c/version.h
 file (STRINGS "${BFN_P4C_SOURCE_DIR}/bf-p4c/version.h"
   __version
@@ -85,8 +84,7 @@ else()
     set (BFN_P4C_GIT_SHA $ENV{BFN_P4C_GIT_SHA})
   endif()
 endif()
-set (ENV{P4C_VERSION} "${BFN_P4C_VERSION} (SHA: ${BFN_P4C_GIT_SHA})")
-MESSAGE(STATUS "p4c-barefoot version: $ENV{P4C_VERSION}")
+MESSAGE(STATUS "p4c-barefoot version: ${BFN_P4C_VERSION}")
 
 # Generate the sha specific version file. It includes the GIT SHA.
 # Because this version changes frequently, we include it separately from the normal version files.
@@ -94,31 +92,28 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/git_sha_version.h.in"
   "${CMAKE_CURRENT_BINARY_DIR}/bf-p4c/git_sha_version.h" @ONLY)
 
 
-macro(get_schema_version schema_file schema_var)
-  execute_process(
-    COMMAND python3 -c "from ${schema_file} import get_schema_version;print(get_schema_version(), end='', flush=True)"
-    OUTPUT_VARIABLE __schema_version
-    RESULT_VARIABLE __schema_errcode
-    ERROR_VARIABLE __schema_errstr
-    WORKING_DIRECTORY ${BFN_P4C_SOURCE_DIR}/compiler_interfaces/schemas)
-  if (${__schema_errcode})
-    MESSAGE(FATAL_ERROR "Error retrieving ${schema_file} version ${__schema_errstr}")
-  endif()
-  set(${schema_var} ${__schema_version})
-endmacro(get_schema_version)
-# Now force cmake to rerun if any of the files that we depend on versions for
-# change: context and manifest for now
-# We generate a pair of dummy dependency files will be ignored
-set(SCHEMA_FILES
-  compiler_interfaces/schemas/context_schema.py
-  compiler_interfaces/schemas/manifest_schema.py
-  compiler_interfaces/schemas/phv_schema.py
-  compiler_interfaces/schemas/power_schema.py
-  compiler_interfaces/schemas/resources_schema.py
-  )
-foreach (f ${SCHEMA_FILES})
-  configure_file(${BFN_P4C_SOURCE_DIR}/${f} ${CMAKE_BINARY_DIR}/${f}.dep)
-endforeach()
+function(get_schema_version SCHEMA_FILE OUTPUT_VAR)
+    set(SCHEMA_PATH "${INTERFACES_DIR}/schemas/${SCHEMA_FILE}.py")
+    if(NOT EXISTS "${SCHEMA_PATH}")
+        message(SEND_ERROR "Schema file not found: ${SCHEMA_PATH}")
+    endif()
+
+    file(READ "${SCHEMA_PATH}" file_content)
+
+    string(REGEX MATCH "major_version[ \t]*=[ \t]*([0-9]+)" _ "${file_content}")
+    set(major_version "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "minor_version[ \t]*=[ \t]*([0-9]+)" _ "${file_content}")
+    set(minor_version "${CMAKE_MATCH_1}")
+    string(REGEX MATCH "patch_version[ \t]*=[ \t]*([0-9]+)" _ "${file_content}")
+    set(patch_version "${CMAKE_MATCH_1}")
+    if(NOT DEFINED major_version OR major_version STREQUAL ""
+       OR NOT DEFINED minor_version OR minor_version STREQUAL ""
+       OR NOT DEFINED patch_version OR patch_version STREQUAL "")
+        message(SEND_ERROR "Failed to parse version from ${VERSION_FILE}")
+    endif()
+
+    set(${OUTPUT_VAR} "${major_version}.${minor_version}.${patch_version}" PARENT_SCOPE)
+endfunction()
 
 if (ENABLE_WERROR)
   # fixme: we do want implicit-fallthrough to be an error, but we have to
@@ -175,16 +170,6 @@ if (ENABLE_DOXYGEN)
   endif()
 endif()
 
-# Generate the LICENSE file. Do this before generating the build system so
-# that CPack detects that the file exists.
-execute_process(COMMAND "${BFN_P4C_SOURCE_DIR}/scripts/generate-license.sh")
-
-set (CPACK_RESOURCE_FILE_LICENSE "${BFN_P4C_SOURCE_DIR}/LICENSE")
-set (THIRD_PARTY_LICENSES "${BFN_P4C_SOURCE_DIR}/LICENSES.txt")
-install (FILES ${CPACK_RESOURCE_FILE_LICENSE}
-  ${THIRD_PARTY_LICENSES}
-  DESTINATION share/p4c)
-
 set (CPACK_GENERATOR "TBZ2")
 set (CPACK_PACKAGE_NAME "p4c")
 set (CPACK_PACKAGE_VERSION_MAJOR ${BFN_P4C_VERSION_MAJOR})
@@ -229,6 +214,7 @@ set (BF_P4C_IR_SRCS
   bf-p4c/parde/match_register.cpp
   bf-p4c/parde/clot/clot.cpp
   bf-p4c/phv/phv.cpp
+  # FIXME: This should be a library.
   bf-utils/dynamic_hash/dynamic_hash.cpp
   bf-utils/dynamic_hash/bfn_hash_algorithm.cpp
   )
@@ -239,4 +225,9 @@ foreach(src IN LISTS BF_P4C_IR_SRCS)
 endforeach()
 set(EXTENSION_IR_SOURCES ${EXTENSION_IR_SOURCES} ${QUAL_BF_P4C_IR_SRCS} PARENT_SCOPE)
 
+
 add_subdirectory(bf-p4c)
+
+# Initialize bf-asm after bf-p4c.
+add_subdirectory(bf-asm)
+

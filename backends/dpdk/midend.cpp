@@ -111,10 +111,10 @@ DpdkMidEnd::DpdkMidEnd(CompilerOptions &options, std::ostream *outStream) {
     auto convertEnums = new P4::ConvertEnums(&typeMap, new EnumOn32Bits());
     auto convertErrors = new P4::ConvertErrors(&typeMap, new ErrorWidth(16));
     auto evaluator = new P4::EvaluatorPass(&refMap, &typeMap);
-    std::function<bool(const Context *, const IR::Expression *)> policy =
-        [=](const Context *ctx, const IR::Expression *) -> bool {
+    P4::LocalCopyPropPolicyCallbackFn policy = [=](const Context *ctx, const IR::Expression *,
+                                                   const DeclarationLookup *refMap) -> bool {
         if (auto mce = findContext<IR::MethodCallExpression>(ctx)) {
-            auto mi = P4::MethodInstance::resolve(mce, &refMap, &typeMap);
+            auto mi = P4::MethodInstance::resolve(mce, refMap, &typeMap);
             if (auto em = mi->to<P4::ExternMethod>()) {
                 cstring externType = em->originalExternType->getName().name;
                 cstring externMethod = em->method->getName().name;
@@ -204,7 +204,7 @@ DpdkMidEnd::DpdkMidEnd(CompilerOptions &options, std::ostream *outStream) {
             new P4::HSIndexSimplifier(&typeMap),
             new P4::ParsersUnroll(true, &refMap, &typeMap),
             new P4::FlattenHeaderUnion(&refMap, &typeMap),
-            new P4::SimplifyControlFlow(&typeMap),
+            new P4::SimplifyControlFlow(&typeMap, true),
             new P4::ReplaceSelectRange(),
             new P4::MoveDeclarations(),  // more may have been introduced
             new P4::ConstantFolding(&typeMap),
@@ -215,7 +215,7 @@ DpdkMidEnd::DpdkMidEnd(CompilerOptions &options, std::ostream *outStream) {
             }),
             new P4::MoveDeclarations(),
             validateTableProperties(options.arch),
-            new P4::SimplifyControlFlow(&typeMap),
+            new P4::SimplifyControlFlow(&typeMap, true),
             new P4::SimplifySwitch(&typeMap),
             new P4::CompileTimeOperations(),
             new P4::TableHit(&typeMap),

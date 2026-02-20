@@ -175,7 +175,7 @@ class P4Formatter : public Inspector, ::P4::ResolutionContext {
     bool preorder(const IR::Type_Parser *t) override;
     bool preorder(const IR::Type_Control *t) override;
     bool preorder(const IR::Type_Name *t) override;
-    bool preorder(const IR::Type_Stack *t) override;
+    bool preorder(const IR::Type_Array *t) override;
     bool preorder(const IR::Type_Specialized *t) override;
     bool preorder(const IR::Type_Enum *t) override;
     bool preorder(const IR::Type_SerEnum *t) override;
@@ -248,6 +248,7 @@ class P4Formatter : public Inspector, ::P4::ResolutionContext {
 
     // statements
     bool preorder(const IR::AssignmentStatement *s) override;
+    bool preorder(const IR::OpAssignmentStatement *s) override;
     bool preorder(const IR::BlockStatement *s) override;
     bool preorder(const IR::MethodCallStatement *s) override;
     bool preorder(const IR::EmptyStatement *s) override;

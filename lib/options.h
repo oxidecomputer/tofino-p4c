@@ -51,6 +51,9 @@ class Options {
     // return true if processing is successful
     using OptionProcessor = std::function<bool(const char *)>;
 
+ private:
+    void shortUsage();
+
  protected:
     struct Option {
         cstring option;
@@ -84,6 +87,7 @@ class Options {
 
     explicit Options(std::string_view message)
         : binaryName(nullptr), message(message), compileCommand("") {}
+    virtual ~Options() = default;
 
     /// Checks if parsed options make sense with respect to each-other.
     /// @returns true if the validation was successful and false otherwise.
@@ -92,6 +96,8 @@ class Options {
  public:
     /**
      * Process options; return list of remaining options.
+     * Also extracts the command name, startup time and saves a copy of the literal
+     * commandline for future messages.
      *
      * If subclasses override this method, they should call the superclass
      * implementation.
@@ -99,6 +105,17 @@ class Options {
      * @return 'nullptr' if an error is signaled.
      */
     virtual std::vector<const char *> *process(int argc, char *const argv[]);
+
+    /**
+     * Process additional options, maybe not from the command line; return list
+     * of remaining options.
+     *
+     * If subclasses override this method, they should call the superclass
+     * implementation.
+     *
+     * @return 'nullptr' if an error is signaled.
+     */
+    virtual std::vector<const char *> *process_options(int argc, char *const argv[]);
 
     [[nodiscard]] virtual const char *getIncludePath() const = 0;
     cstring getCompileCommand() { return compileCommand; }

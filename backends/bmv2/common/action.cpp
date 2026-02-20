@@ -26,7 +26,7 @@ cstring ActionConverter::jsonAssignment(const IR::Type *type) {
     if (type->is<IR::Type_Varbits>()) return "assign_VL"_cs;
     if (type->is<IR::Type_HeaderUnion>()) return "assign_union"_cs;
     if (type->is<IR::Type_Header>() || type->is<IR::Type_Struct>()) return "assign_header"_cs;
-    if (auto ts = type->to<IR::Type_Stack>()) {
+    if (auto ts = type->to<IR::Type_Array>()) {
         auto et = ts->elementType;
         if (et->is<IR::Type_HeaderUnion>())
             return "assign_union_stack"_cs;
@@ -56,10 +56,19 @@ void ActionConverter::convertActionBody(const IR::Vector<IR::StatOrDecl> *body,
                 auto mi = P4::MethodInstance::resolve(mce, ctxt->refMap, ctxt->typeMap);
                 auto em = mi->to<P4::ExternMethod>();
                 if (em != nullptr) {
-                    if ((em->originalExternType->name.name == "Register" ||
-                         em->method->name.name == "read") ||
-                        (em->originalExternType->name.name == "Meter" &&
-                         em->method->name.name == "execute")) {
+                    if (em->originalExternType->name.name == "Random" &&
+                        em->method->name.name == "read") {
+                        isR = true;
+                        auto dest = new IR::Argument(l);
+                        auto args = new IR::Vector<IR::Argument>();
+                        args->push_back(dest);  // dest
+                        mce2 = new IR::MethodCallExpression(mce->method, mce->typeArguments);
+                        mce2->arguments = args;
+                        s = new IR::MethodCallStatement(mce);
+                    } else if ((em->originalExternType->name.name == "Register" ||
+                                em->method->name.name == "read") ||
+                               (em->originalExternType->name.name == "Meter" &&
+                                em->method->name.name == "execute")) {
                         isR = true;
                         // l = l->to<IR::PathExpression>();
                         // BUG_CHECK(l != nullptr, "register_read dest cast failed");
@@ -176,12 +185,12 @@ void ActionConverter::convertActionBody(const IR::Vector<IR::StatOrDecl> *body,
                     prim = "add_header"_cs;
                 } else if (builtin->name == IR::Type_Header::setInvalid) {
                     prim = "remove_header"_cs;
-                } else if (builtin->name == IR::Type_Stack::push_front) {
+                } else if (builtin->name == IR::Type_Array::push_front) {
                     BUG_CHECK(mc->arguments->size() == 1, "Expected 1 argument for %1%", mc);
                     auto arg = ctxt->conv->convert(mc->arguments->at(0)->expression);
                     prim = "push"_cs;
                     parameters->append(arg);
-                } else if (builtin->name == IR::Type_Stack::pop_front) {
+                } else if (builtin->name == IR::Type_Array::pop_front) {
                     BUG_CHECK(mc->arguments->size() == 1, "Expected 1 argument for %1%", mc);
                     auto arg = ctxt->conv->convert(mc->arguments->at(0)->expression);
                     prim = "pop"_cs;

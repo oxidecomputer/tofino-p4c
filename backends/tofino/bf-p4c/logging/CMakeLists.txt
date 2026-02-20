@@ -15,7 +15,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 find_package(PkgConfig QUIET)
-pkg_check_modules(LIBRAPIDJSON REQUIRED RapidJSON=1.1.0)
+if(RAPIDJSON_DIR)
+  include_directories(${RAPIDJSON_DIR})
+  include_directories("${CMAKE_SOURCE_DIR}/oxide/rapidjson/include")
+else()
+  pkg_check_modules(LIBRAPIDJSON REQUIRED RapidJSON=1.1.0)
+endif()
 
 # spdlog can be included header only
 # it cannot be build normally as it uses newer cmake

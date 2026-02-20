@@ -18,8 +18,8 @@ and limitations under the License.
 
 namespace P4::TC {
 
-const IR::ToplevelBlock *MidEnd::run(TCOptions &options, const IR::P4Program *program,
-                                     std::ostream *outStream) {
+IR::ToplevelBlock *MidEnd::run(TCOptions &options, const IR::P4Program *program,
+                               std::ostream *outStream) {
     if (program == nullptr && options.listMidendPasses == 0) return nullptr;
     auto evaluator = new P4::EvaluatorPass(&refMap, &typeMap);
 
@@ -31,7 +31,7 @@ const IR::ToplevelBlock *MidEnd::run(TCOptions &options, const IR::P4Program *pr
         new P4::EliminateInvalidHeaders(&typeMap),
         new P4::EliminateNewtype(&typeMap),
         new P4::EliminateSerEnums(&typeMap),
-        new P4::SimplifyControlFlow(&typeMap),
+        new P4::SimplifyControlFlow(&typeMap, true),
         new P4::SimplifyKey(&typeMap,
                             new P4::OrPolicy(new P4::IsValid(&typeMap), new P4::IsLikeLeftValue())),
         new P4::RemoveExits(&typeMap),
@@ -56,10 +56,10 @@ const IR::ToplevelBlock *MidEnd::run(TCOptions &options, const IR::P4Program *pr
         new P4::RemoveSelectBooleans(&typeMap),
         new P4::SingleArgumentSelect(&typeMap),
         new P4::ConstantFolding(&typeMap),
-        new P4::SimplifyControlFlow(&typeMap),
+        new P4::SimplifyControlFlow(&typeMap, true),
         new P4::TableHit(&typeMap),
         new P4::RemoveLeftSlices(&typeMap),
-        new EBPF::Lower(&refMap, &typeMap),
+        new EBPF::Lower(&refMap, &typeMap, std::nullopt),
         new P4::ParsersUnroll(true, &refMap, &typeMap),
         evaluator,
         new P4::MidEndLast(),
