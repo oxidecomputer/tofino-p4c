@@ -1143,7 +1143,8 @@ const IR::Node *TypeInferenceBase::postorder(const IR::Cmpl *expression) {
     BUG_CHECK(type, "Invalid Type_SerEnum/getTypeType");
 
     if (type->is<IR::Type_InfInt>()) {
-        typeError("'%1%' cannot be applied to an operand with an unknown width");
+        typeError("'%1%' operation cannot be applied to an operand '%2%' with an unknown width",
+                  expression->getStringOp(), expression->expr);
     } else if (type->is<IR::Type_Bits>()) {
         setType(getOriginal(), type);
         setType(expression, type);
@@ -1831,6 +1832,10 @@ const IR::Expression *TypeInferenceBase::actionCall(bool inActionList,
         return actionCall;
     }
     LOG2("Action type " << baseType);
+    if (method->is<IR::MethodCallExpression>()) {
+        typeError("%1%: Cannot invoke result of an action call", method);
+        return actionCall;
+    }
     BUG_CHECK(method->is<IR::PathExpression>(), "%1%: unexpected call", method);
     BUG_CHECK(baseType->returnType == nullptr, "%1%: action with return type?",
               baseType->returnType);
